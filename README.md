@@ -139,7 +139,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.5.0.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.5.1.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -185,7 +185,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.5.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.5.1 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility
@@ -194,6 +194,7 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.5.1** (2026-10-09): the plugin is now marked stable. No change to how it works.
 - **0.5.0** (2026-10-09): new **Pass or fail (one pass mark)** way to give scores: type the pass mark and the two
   scores. It sets the gradebook column's grade to pass. Needs a database upgrade (one new setting per quiz); quizzes
   that already use bands are not changed.
