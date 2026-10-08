@@ -1,0 +1,64 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_bandedgrade/recalculate_form
+
+    Choice between keeping and overwriting scores changed by hand.
+
+    Context variables required for this template:
+    * action - URL the form posts to
+    * cmid - course module id of the quiz
+    * sesskey - session key
+    * changedcount - number of students whose score was changed by hand
+    * changednames - their names, comma separated
+    * cancelurl - URL of the quiz page
+
+    Example context (json):
+    {
+        "action": "https://example.com/local/bandedgrade/recalculate.php?cmid=3",
+        "cmid": 3,
+        "sesskey": "abc123",
+        "changedcount": 2,
+        "changednames": "Ana Lopez, Ben Smith",
+        "cancelurl": "https://example.com/mod/quiz/view.php?id=3"
+    }
+}}
+<p>{{#str}}recalculateintro, local_bandedgrade{{/str}}</p>
+<form method="post" action="{{action}}">
+    <input type="hidden" name="cmid" value="{{cmid}}">
+    <input type="hidden" name="sesskey" value="{{sesskey}}">
+    <fieldset class="mb-3">
+        <legend class="h5">{{#str}}recalculatechoose, local_bandedgrade{{/str}}</legend>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="mode" id="local_bandedgrade_keep" value="keep" checked>
+            <label class="form-check-label" for="local_bandedgrade_keep">{{#str}}modekeep, local_bandedgrade{{/str}}</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="mode" id="local_bandedgrade_overwrite" value="overwrite"
+                {{^changedcount}}disabled{{/changedcount}} aria-describedby="local_bandedgrade_changed">
+            <label class="form-check-label" for="local_bandedgrade_overwrite">
+                {{#str}}modeoverwrite, local_bandedgrade, {{changedcount}}{{/str}}
+            </label>
+            <div class="form-text text-muted" id="local_bandedgrade_changed">
+                {{#changednames}}{{changednames}}{{/changednames}}
+                {{^changednames}}{{#str}}nochanges, local_bandedgrade{{/str}}{{/changednames}}
+            </div>
+        </div>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">{{#str}}recalculatebutton, local_bandedgrade{{/str}}</button>
+    <a class="btn btn-secondary" href="{{cancelurl}}">{{#str}}cancel{{/str}}</a>
+</form>
