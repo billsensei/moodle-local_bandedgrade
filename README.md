@@ -133,7 +133,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.4.0.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.4.1.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -179,10 +179,12 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Compatibility
 
-Moodle 5.0 (tested on 5.0.10+), PHP 8.2 or later.
+Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests run on all three with MariaDB and PostgreSQL.
 
 ### Changelog
 
+- **0.4.1** (2026-10-08): now supports Moodle 5.1 and 5.2 (tested with automated checks on 5.0, 5.1 and 5.2). No change
+  to how the plugin works.
 - **0.4.0** (2026-10-08): bands can start at a percentage of correct questions instead of a number. Two new ready-made
   sets by percentage. Administrators write a percentage set by putting % after each band start
   (`Name | 0%=0, 50%=1`). The Number correct page also shows the percentage.
