@@ -41,6 +41,9 @@ trait quiz_trait {
         global $CFG;
         require_once($CFG->dirroot . '/mod/quiz/locallib.php');
         require_once($CFG->libdir . '/gradelib.php');
+        // Our observers run after the transaction commits ('internal' => false). On PostgreSQL PHPUnit keeps each
+        // test inside a transaction, so without this they would never run.
+        $this->preventResetByRollback();
         $this->resetAfterTest();
         $this->setAdminUser();
         $this->course = $this->getDataGenerator()->create_course();
