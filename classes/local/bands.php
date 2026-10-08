@@ -36,12 +36,18 @@ class bands {
     /** @var float Highest score: gradebook grades are NUMBER(10,5) (lib/db/install.xml grade_items.grademax). */
     const MAX_SCORE = 99999;
 
+    /** @var int Most presets an administrator can add. */
+    const MAX_SITE_PRESETS = 20;
+
+    /** @var int Longest preset name. */
+    const MAX_NAME = 100;
+
     /**
      * Built-in presets: key => bands. Names are the lang strings 'preset_<key>'.
      *
      * @return array<string, array> Presets.
      */
-    public static function presets(): array {
+    public static function builtin_presets(): array {
         return [
             'zerotothree10' => [
                 ['from' => 0, 'score' => 0.0],
@@ -54,6 +60,118 @@ class bands {
                 ['from' => 6, 'score' => 1.0],
             ],
         ];
+    }
+
+    /**
+     * The presets teachers can pick: the built-in ones (unless an administrator turned them off), then the site's own.
+     *
+     * Quizzes store a copy of their bands, so changing or removing a preset never changes a quiz.
+     *
+     * @return array<string, array> Key => bands. Site presets have the keys site1, site2, ...
+     */
+    public static function presets(): array {
+        $presets = get_config('local_bandedgrade', 'builtinpresets') === '0' ? [] : self::builtin_presets();
+        foreach (self::site_presets() as $i => $preset) {
+            $presets['site' . ($i + 1)] = $preset['bands'];
+        }
+        return $presets;
+    }
+
+    /**
+     * The names of the presets from presets(), ready to show.
+     *
+     * @return array<string, string> Key => name.
+     */
+    public static function preset_names(): array {
+        $names = [];
+        if (get_config('local_bandedgrade', 'builtinpresets') !== '0') {
+            foreach (array_keys(self::builtin_presets()) as $key) {
+                $names[$key] = get_string('preset_' . $key, 'local_bandedgrade');
+            }
+        }
+        foreach (self::site_presets() as $i => $preset) {
+            $names['site' . ($i + 1)] = format_string($preset['name'], true, ['context' => \context_system::instance()]);
+        }
+        return $names;
+    }
+
+    /**
+     * The presets an administrator added (setting local_bandedgrade/sitepresets). Broken lines are left out.
+     *
+     * @return array List of ['name' => string, 'bands' => array].
+     */
+    public static function site_presets(): array {
+        [$presets] = self::parse_site_presets((string)get_config('local_bandedgrade', 'sitepresets'));
+        return $presets;
+    }
+
+    /**
+     * Read the site presets text: one preset per line, "Name | from=score, from=score, ...".
+     *
+     * "→" or "->" can be used instead of "=", and ";" instead of ",". Empty lines are ignored.
+     *
+     * @param string $text The setting text.
+     * @return array [presets, errors]: presets as in site_presets(); errors are full sentences naming the line.
+     */
+    public static function parse_site_presets(string $text): array {
+        $presets = [];
+        $errors = [];
+        foreach (preg_split('/\R/u', $text) as $index => $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $a = (object)['line' => $index + 1, 'error' => ''];
+            $parts = explode('|', $line);
+            $name = trim($parts[0]);
+            if (count($parts) !== 2 || $name === '' || trim($parts[1]) === '') {
+                $a->error = get_string('error_presetformat', 'local_bandedgrade');
+            } else if (\core_text::strlen($name) > self::MAX_NAME) {
+                $a->error = get_string('error_presetname', 'local_bandedgrade', self::MAX_NAME);
+            } else {
+                $a->error = self::parse_preset_bands($parts[1], $bands);
+            }
+            if ($a->error === '' && count($presets) >= self::MAX_SITE_PRESETS) {
+                $a->error = get_string('error_presetcount', 'local_bandedgrade', self::MAX_SITE_PRESETS);
+            }
+            if ($a->error !== '') {
+                $errors[] = get_string('error_presetline', 'local_bandedgrade', $a);
+                continue;
+            }
+            $presets[] = ['name' => $name, 'bands' => $bands];
+        }
+        return [$presets, $errors];
+    }
+
+    /**
+     * Read the bands part of a site preset line, with the same rules as the quiz settings form.
+     *
+     * @param string $text For example "0=0, 1=1, 5=2, 9=3".
+     * @param array|null $bands Set to the bands when the text is fine.
+     * @return string An error message, or '' when the text is fine.
+     */
+    private static function parse_preset_bands(string $text, ?array &$bands): string {
+        $bands = null;
+        $pairs = array_values(array_filter(array_map('trim', preg_split('/[,;]/', $text)), fn($pair) => $pair !== ''));
+        if (count($pairs) > self::MAX_ROWS) {
+            return get_string('error_presetrows', 'local_bandedgrade', self::MAX_ROWS);
+        }
+        $froms = [];
+        $scores = [];
+        foreach ($pairs as $pair) {
+            $sides = preg_split('/\s*(?:=|->|→)\s*/u', $pair);
+            if (count($sides) !== 2) {
+                return get_string('error_presetpair', 'local_bandedgrade', $pair);
+            }
+            $froms[] = $sides[0];
+            $scores[] = $sides[1];
+        }
+        [$result, $errors] = self::from_rows($froms, $scores);
+        if ($errors) {
+            return reset($errors);
+        }
+        $bands = $result;
+        return '';
     }
 
     /**
@@ -174,6 +292,25 @@ class bands {
      */
     public static function max_score(array $bands): float {
         return $bands ? max(array_column($bands, 'score')) : 0.0;
+    }
+
+    /**
+     * The lowest band start that the quiz's questions cannot reach, if any.
+     *
+     * @param array $bands Bands.
+     * @param int $total Number of questions that can be counted (0 if none yet).
+     * @return int|null The "from" of the first band no student can reach, or null if all can be reached.
+     */
+    public static function first_unreachable(array $bands, int $total): ?int {
+        if ($total <= 0) {
+            return null;
+        }
+        foreach (self::normalise($bands) as $band) {
+            if ($band['from'] > $total) {
+                return $band['from'];
+            }
+        }
+        return null;
     }
 
     /**

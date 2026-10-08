@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for local_bandedgrade.
+ * Hook callbacks for local_bandedgrade.
  *
  * @package    local_bandedgrade
  * @copyright  2026 Site administrators
@@ -24,10 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_bandedgrade';
-$plugin->version = 2026100804;
-$plugin->requires = 2025041400; // Moodle 5.0.
-$plugin->supported = [500, 500];
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.3.0';
-$plugin->dependencies = ['mod_quiz' => 2025041400];
+$callbacks = [
+    [
+        'hook' => \core\hook\output\before_http_headers::class,
+        'callback' => [\local_bandedgrade\hook_callbacks::class, 'before_http_headers'],
+    ],
+];

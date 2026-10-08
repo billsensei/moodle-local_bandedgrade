@@ -55,13 +55,19 @@ function local_bandedgrade_coursemodule_edit_post_actions($moduleinfo, $course) 
 }
 
 /**
- * Add "Recalculate scores" to the quiz's "More" menu when banded grading is on (RESEARCH-bandedgrade.md §6).
+ * Add "Number correct" and "Recalculate scores" to the quiz's "More" menu when banded grading is on
+ * (RESEARCH-bandedgrade.md §6).
  *
  * @param settings_navigation $nav The settings navigation.
  * @param context $context The current context.
  */
 function local_bandedgrade_extend_settings_navigation(settings_navigation $nav, context $context) {
-    if ($context->contextlevel != CONTEXT_MODULE || !has_capability('local/bandedgrade:recalculate', $context)) {
+    if ($context->contextlevel != CONTEXT_MODULE) {
+        return;
+    }
+    $canreport = has_capability('mod/quiz:viewreports', $context);
+    $canrecalculate = has_capability('local/bandedgrade:recalculate', $context);
+    if (!$canreport && !$canrecalculate) {
         return;
     }
     $cm = get_coursemodule_from_id('quiz', $context->instanceid);
@@ -69,7 +75,19 @@ function local_bandedgrade_extend_settings_navigation(settings_navigation $nav, 
         return;
     }
     $node = $nav->find('modulesettings', navigation_node::TYPE_SETTING);
-    if ($node) {
+    if (!$node) {
+        return;
+    }
+    if ($canreport) {
+        $node->add(
+            get_string('report', 'local_bandedgrade'),
+            new moodle_url('/local/bandedgrade/report.php', ['cmid' => $cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'local_bandedgrade_report'
+        );
+    }
+    if ($canrecalculate) {
         $node->add(
             get_string('recalculate', 'local_bandedgrade'),
             new moodle_url('/local/bandedgrade/recalculate.php', ['cmid' => $cm->id]),

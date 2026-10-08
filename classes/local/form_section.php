@@ -64,8 +64,9 @@ class form_section {
         $config = $quizid ? quiz_config::get($quizid) : null;
         $total = $quizid ? counter::question_total($quizid) : 0;
         $presets = bands::presets();
-        $current = $config && $config->bands ? $config->bands : $presets['zerotothree10'];
-        $preset = $config ? bands::matching_preset($current) : 'zerotothree10';
+        // A new quiz starts with the first preset (the 0-3 one unless an administrator changed the presets).
+        $current = $config && $config->bands ? $config->bands : (reset($presets) ?: []);
+        $preset = bands::matching_preset($current);
 
         $mform->addElement('header', 'bandedgradehdr', get_string('formheader', 'local_bandedgrade'));
 
@@ -95,10 +96,7 @@ class form_section {
         $mform->addHelpButton('bandedgrade_enabled', 'enabled', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_enabled', $config ? (int)$config->enabled : 0);
 
-        $options = ['' => get_string('preset_custom', 'local_bandedgrade')];
-        foreach (array_keys($presets) as $key) {
-            $options[$key] = get_string('preset_' . $key, 'local_bandedgrade');
-        }
+        $options = ['' => get_string('preset_custom', 'local_bandedgrade')] + bands::preset_names();
         $mform->addElement('select', 'bandedgrade_preset', get_string('preset', 'local_bandedgrade'), $options);
         $mform->addHelpButton('bandedgrade_preset', 'preset', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_preset', $preset);
@@ -146,15 +144,24 @@ class form_section {
         $mform->hideIf('bandedgrade_preview', 'bandedgrade_enabled');
 
         $cm = $formwrapper->get_coursemodule();
-        if (
-            $config && $config->enabled && $cm
-                && has_capability('local/bandedgrade:recalculate', \context_module::instance($cm->id))
-        ) {
-            $link = \html_writer::link(
-                new \moodle_url('/local/bandedgrade/recalculate.php', ['cmid' => $cm->id]),
-                get_string('recalculatelink', 'local_bandedgrade')
-            );
-            $mform->addElement('static', 'bandedgrade_recalculate', '', $link);
+        $links = [];
+        if ($config && $config->enabled && $cm) {
+            $cmcontext = \context_module::instance($cm->id);
+            if (has_capability('mod/quiz:viewreports', $cmcontext)) {
+                $links[] = \html_writer::link(
+                    new \moodle_url('/local/bandedgrade/report.php', ['cmid' => $cm->id]),
+                    get_string('reportlink', 'local_bandedgrade')
+                );
+            }
+            if (has_capability('local/bandedgrade:recalculate', $cmcontext)) {
+                $links[] = \html_writer::link(
+                    new \moodle_url('/local/bandedgrade/recalculate.php', ['cmid' => $cm->id]),
+                    get_string('recalculatelink', 'local_bandedgrade')
+                );
+            }
+        }
+        if ($links) {
+            $mform->addElement('static', 'bandedgrade_recalculate', '', implode(' · ', $links));
             $mform->hideIf('bandedgrade_recalculate', 'bandedgrade_enabled');
         }
 
