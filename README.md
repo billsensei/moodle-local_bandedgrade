@@ -183,6 +183,11 @@ and gives every quiz its own weight in the course total back.
 The plugin stores, per quiz attempt, the number of fully correct questions, and per student the last score it wrote.
 Both are covered by Moodle's privacy export and delete tools. The scores themselves are gradebook data.
 
+### Status
+
+Version 0.5.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Moodle version and database.
+
 ### Compatibility
 
 Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests run on all three with MariaDB and PostgreSQL.
