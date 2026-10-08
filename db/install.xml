@@ -10,7 +10,7 @@
         <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="ruletype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="bands" SEQUENCE="false" COMMENT="Kind of rule; only 'bands' for now"/>
+        <FIELD NAME="ruletype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="bands" SEQUENCE="false" COMMENT="Kind of rule: bands (number correct) or percent (percentage correct)"/>
         <FIELD NAME="bands" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of {from, score}, sorted by from"/>
         <FIELD NAME="zeroweight" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 = set the quiz's own grade weight to 0"/>
         <FIELD NAME="gradeitemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Our manual grade item"/>

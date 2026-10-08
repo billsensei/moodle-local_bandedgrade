@@ -121,3 +121,49 @@ Feature: Grade a quiz by the number of fully correct questions
     And the field "Band 2: from this many correct" matches value "6"
     And the field "Band 3: from this many correct" matches value ""
     And I should see "The band starting at 6 can never be reached: this quiz has only 4 questions." in the "#local_bandedgrade_preview" "css_element"
+
+  Scenario: Bands can be based on the percentage of correct questions
+    Given I am on the "Quiz 1" "quiz activity editing" page
+    And I set the following fields to these values:
+      | Bands are based on             | The percentage of questions answered correctly |
+      | Band 1: from this many correct | 0                                              |
+      | Band 1: score                  | 0                                              |
+      | Band 2: from this many correct | 50                                             |
+      | Band 2: score                  | 1                                              |
+      | Band 3: from this many correct | 75                                             |
+      | Band 3: score                  | 2                                              |
+    And I press "Save and return to course"
+    When user "student1" has attempted "Quiz 1" with responses:
+      | slot | response |
+      | 1    | True     |
+      | 2    | False    |
+      | 3    | True     |
+      | 4    | True     |
+    And I run all adhoc tasks
+    And I am on the "Course 1" "grades > Grader report > View" page logged in as "teacher1"
+    # 3 of 4 questions are fully right: 75%, which meets the band starting at 75 (with number bands 3 correct gave 1).
+    Then the following should exist in the "user-grades" table:
+      | -1-         | -3-   | -4-  |
+      | Student One | 50.00 | 2.00 |
+    And I am on the "Quiz 1" "quiz activity editing" page
+    And I should see "75% or more correct (3 of 4 questions or more) → score 2"
+    And I should see "50% or more correct (2 of 4 questions or more) → score 1"
+
+  Scenario: A percentage above 100 is refused in plain language
+    When I am on the "Quiz 1" "quiz activity editing" page
+    And I set the following fields to these values:
+      | Bands are based on             | The percentage of questions answered correctly |
+      | Band 3: from this many correct | 101                                            |
+    And I press "Save and display"
+    Then I should see "Type a percentage from 0 to 100"
+
+  @javascript
+  Scenario: A percentage set fills in the bands, switches the type and shows what the percentages mean
+    When I am on the "Quiz 1" "quiz activity editing" page
+    And I expand all fieldsets
+    And I set the field "Bands" to "Scores 0 to 3 by percentage: under 10% → 0, 10% → 1, 50% → 2, 90% or more → 3"
+    Then the field "Bands are based on" matches value "The percentage of questions answered correctly"
+    And the field "Band 3: from this many correct" matches value "50"
+    And I should see "50% or more correct (2 of 4 questions or more) → score 2" in the "#local_bandedgrade_preview" "css_element"
+    And I should see "90% or more correct (4 of 4 questions or more) → score 3" in the "#local_bandedgrade_preview" "css_element"
+    And I should see "% or more correct → score" in the "#fgroup_id_bandedgrade_row0" "css_element"

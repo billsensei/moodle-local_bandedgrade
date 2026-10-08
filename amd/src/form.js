@@ -48,9 +48,10 @@ const input = (form, kind, index) => form.querySelector(`[name="bandedgrade_${ki
  *
  * @param {HTMLFormElement} form The form.
  * @param {number} rows Number of rows.
+ * @param {boolean} percent True when "from" is a percentage (0 to 100, up to 2 decimals).
  * @returns {Array} Bands {from, score}.
  */
-const readBands = (form, rows) => {
+const readBands = (form, rows, percent) => {
     const bands = [];
     for (let i = 0; i < rows; i++) {
         const from = input(form, 'from', i);
@@ -58,15 +59,32 @@ const readBands = (form, rows) => {
         if (!from || !score) {
             continue;
         }
-        const fromText = from.value.trim();
+        const fromText = from.value.trim().replace(',', '.');
         const scoreText = score.value.trim().replace(',', '.');
         // The same rules as bands::from_rows() in PHP, so the preview never shows a band the server would refuse.
-        if (!/^\d+$/.test(fromText) || !/^\d+(\.\d{1,5})?$/.test(scoreText)) {
+        const fromOk = percent ? /^\d+(\.\d{1,2})?$/.test(fromText) && Number(fromText) <= 100 : /^\d+$/.test(fromText);
+        if (!fromOk || !/^\d+(\.\d{1,5})?$/.test(scoreText)) {
             continue;
         }
-        bands.push({from: parseInt(fromText, 10), score: Number(scoreText)});
+        bands.push({from: Number(fromText), score: Number(scoreText)});
     }
     return bands.sort((a, b) => a.from - b.from);
+};
+
+/**
+ * The fewest correct questions that reach a percentage (as bands::min_correct() in PHP).
+ *
+ * @param {number} percent The lower bound.
+ * @param {number} total Number of questions (above 0).
+ * @returns {number} The number of questions.
+ */
+const minCorrect = (percent, total) => {
+    for (let correct = 0; correct <= total; correct++) {
+        if (Math.round(correct / total * 10000) / 100 >= percent - 0.00001) {
+            return correct;
+        }
+    }
+    return total;
 };
 
 /**
@@ -76,8 +94,9 @@ const readBands = (form, rows) => {
  * @param {Array} bands Bands.
  * @param {number} total Number of questions (0 if unknown).
  * @param {Object} strings Preview strings with placeholders.
+ * @param {boolean} percent True when the bands are percentages.
  */
-const renderPreview = (target, bands, total, strings) => {
+const renderPreview = (target, bands, total, strings, percent) => {
     target.textContent = '';
     if (!bands.length) {
         target.textContent = strings.previewempty;
@@ -89,7 +108,10 @@ const renderPreview = (target, bands, total, strings) => {
         const values = {from: band.from, score: band.score, total: total};
         const next = i + 1 < bands.length ? bands[i + 1].from : null;
         let text;
-        if (total > 0 && band.from > total) {
+        if (percent) {
+            values.min = total > 0 ? minCorrect(band.from, total) : 0;
+            text = fill(total > 0 ? strings.previewpercentmin : strings.previewpercent, values);
+        } else if (total > 0 && band.from > total) {
             text = fill(strings.previewunreachable, values);
         } else {
             let to = null;
@@ -116,21 +138,32 @@ const renderPreview = (target, bands, total, strings) => {
 };
 
 /**
- * Set up the form section.
- *
- * @param {Object} config Settings from PHP: presets, total, rows, strings.
+ * Set up the form section. The settings (presets, total, rows, strings) come from the preview's data-config attribute.
  */
-export const init = (config) => {
+export const init = () => {
     const preview = document.getElementById('local_bandedgrade_preview');
     const preset = document.querySelector('select[name="bandedgrade_preset"]');
     if (!preview || !preset) {
         return;
     }
+    const config = JSON.parse(preview.dataset.config);
     const form = preset.form;
-    const update = () => renderPreview(preview, readBands(form, config.rows), config.total, config.strings);
+    const ruletype = form.querySelector('select[name="bandedgrade_ruletype"]');
+    const isPercent = () => ruletype !== null && ruletype.value === 'percent';
+    const update = () => {
+        const percent = isPercent();
+        form.querySelectorAll('.local-bandedgrade-arrow').forEach((arrow) => {
+            arrow.textContent = percent ? config.strings.arrowpercent : config.strings.arrow;
+        });
+        renderPreview(preview, readBands(form, config.rows, percent), config.total, config.strings, percent);
+    };
 
     preset.addEventListener('change', () => {
-        const bands = config.presets[preset.value];
+        const chosen = config.presets[preset.value];
+        const bands = chosen ? chosen.bands : null;
+        if (chosen && ruletype) {
+            ruletype.value = chosen.ruletype;
+        }
         if (bands) {
             for (let i = 0; i < config.rows; i++) {
                 input(form, 'from', i).value = bands[i] ? bands[i].from : '';
@@ -144,5 +177,8 @@ export const init = (config) => {
             update();
         }
     });
+    if (ruletype) {
+        ruletype.addEventListener('change', update);
+    }
     update();
 };

@@ -49,8 +49,8 @@ class hook_callbacks {
             return;
         }
         $config = quiz_config::get_enabled((int)$cm->instance);
-        if (!$config) {
-            return;
+        if (!$config || $config->ruletype !== bands::TYPE_COUNT) {
+            return; // A percentage band can always be reached by getting every question right.
         }
         $total = counter::question_total((int)$cm->instance);
         $from = bands::first_unreachable($config->bands, $total);

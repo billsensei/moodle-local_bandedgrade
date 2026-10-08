@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['arrow'] = 'or more correct → score';
+$string['arrowpercent'] = '% or more correct → score';
 $string['bandedgrade:recalculate'] = 'Recalculate "Grade by number correct" scores';
 $string['bandrow'] = 'Band {$a}';
 $string['builtinpresets'] = 'Offer the ready-made bands';
@@ -39,9 +40,12 @@ $string['error_duplicate'] = 'Another band already starts at {$a}. Each band nee
 $string['error_from'] = 'Type a whole number of correct answers, like 0, 1 or 5.';
 $string['error_frommax'] = 'Use a number of correct answers up to {$a}.';
 $string['error_nozero'] = 'The first band must start at 0 correct. Right now it starts at {$a}, so students with fewer correct answers would get no score.';
+$string['error_nozeropct'] = 'The first band must start at 0%. Right now it starts at {$a}%, so students with a lower percentage would get no score.';
+$string['error_percent'] = 'Type a percentage from 0 to 100, like 0, 50 or 66.67 (at most 2 decimal places).';
 $string['error_presetcount'] = 'There can be at most {$a} sets of bands. Remove a line.';
 $string['error_presetformat'] = 'Write the name, then a | sign, then the bands. For example: Scores 0 to 3 | 0=0, 1=1, 5=2, 9=3';
 $string['error_presetline'] = 'Line {$a->line}: {$a->error}';
+$string['error_presetmixed'] = 'Write % after every band start, or after none. For example: Scores 0 to 3 by percentage | 0%=0, 10%=1, 50%=2, 90%=3';
 $string['error_presetname'] = 'Use a name of at most {$a} characters.';
 $string['error_presetpair'] = '"{$a}" is not a band. Write each band as "from this many correct = score", like 5=2. Use a dot in scores, like 2.5.';
 $string['error_presetrows'] = 'Use at most {$a} bands in one set.';
@@ -71,12 +75,16 @@ $string['preset_help'] = 'Pick a ready-made set of bands, or choose "My own band
 
 Each band says: "from this many correct answers, give this score". A band lasts until the next band starts. The first band must start at 0.';
 $string['preset_passfail10'] = 'Pass or fail: 6 or more correct passes (score 1)';
+$string['preset_passfailpct'] = 'Pass or fail by percentage: 60% or more correct passes (score 1)';
 $string['preset_zerotothree10'] = 'Scores 0 to 3: 0 correct → 0, 1–4 → 1, 5–8 → 2, 9 or more → 3';
+$string['preset_zerotothreepct'] = 'Scores 0 to 3 by percentage: under 10% → 0, 10% → 1, 50% → 2, 90% or more → 3';
 $string['presetsheading'] = 'Bands teachers can pick';
 $string['presetsheading_desc'] = 'Set up the bands your teachers use most. They appear in the <strong>Bands</strong> list in the quiz settings. A quiz keeps a copy of its bands, so changing a set here does not change quizzes that already use it.';
 $string['preview'] = 'What students will get';
 $string['previewempty'] = 'Fill in the bands to see what students will get.';
 $string['previewopen'] = '{$a->from} or more correct → score {$a->score}';
+$string['previewpercent'] = '{$a->from}% or more correct → score {$a->score}';
+$string['previewpercentmin'] = '{$a->from}% or more correct ({$a->min} of {$a->total} questions or more) → score {$a->score}';
 $string['previewrange'] = '{$a->from} to {$a->to} correct → score {$a->score}';
 $string['previewsingle'] = '{$a->from} correct → score {$a->score}';
 $string['previewunreachable'] = 'The band starting at {$a->from} can never be reached: this quiz has only {$a->total} questions.';
@@ -112,9 +120,19 @@ $string['reportscore'] = 'Score in the gradebook';
 $string['reportstudent'] = 'Student';
 $string['reportused'] = 'Number correct used for the score';
 $string['reportwaiting'] = 'waiting for marking';
+$string['ruletype'] = 'Bands are based on';
+$string['ruletype_count'] = 'The number of questions answered correctly';
+$string['ruletype_help'] = 'Choose what the bands measure.
+
+**Number correct:** a band starts at a number of questions, such as 5 correct.
+
+**Percentage correct:** a band starts at a percentage of the quiz\'s questions, such as 50%. The percentage is worked out from the questions the quiz has now, so it stays fair if you add or remove questions later. A student with 2 of 3 correct has 66.67%.
+
+With "Number correct" a band can be out of reach if the quiz has too few questions. With percentages, 100% is always reachable.';
+$string['ruletype_percent'] = 'The percentage of questions answered correctly';
 $string['scorelabel'] = 'Band {$a}: score';
 $string['sitepresets'] = 'Sets of bands';
-$string['sitepresets_desc'] = 'One set per line: a name, a | sign, then the bands. Each band is "from this many correct = score", with commas between bands. The first band must start at 0. For example:<br><code>Scores 0 to 3 | 0=0, 1=1, 5=2, 9=3</code><br><code>Pass or fail (6 of 10) | 0=0, 6=1</code>';
+$string['sitepresets_desc'] = 'One set per line: a name, a | sign, then the bands. Each band is "from this many correct = score", with commas between bands. The first band must start at 0. For example:<br><code>Scores 0 to 3 | 0=0, 1=1, 5=2, 9=3</code><br><code>Pass or fail (6 of 10) | 0=0, 6=1</code><br>To base the bands on the percentage correct, write % after every band start:<br><code>Scores by percentage | 0%=0, 10%=1, 50%=2, 90%=3</code>';
 $string['statusoff'] = 'Off.';
 $string['statuson'] = 'On.';
 $string['taskrescore'] = 'Recalculate "Grade by number correct" scores for a quiz';

@@ -45,7 +45,8 @@ $PAGE->set_title(get_string('report', 'local_bandedgrade'));
 $PAGE->set_heading($course->fullname);
 $PAGE->activityheader->disable();
 
-if (!quiz_config::get_enabled($quiz->id)) {
+$config = quiz_config::get_enabled($quiz->id);
+if (!$config) {
     echo $OUTPUT->header();
     echo $OUTPUT->notification(get_string('recalculatenotenabled', 'local_bandedgrade'), 'info');
     echo $OUTPUT->continue_button($returnurl);
@@ -62,8 +63,9 @@ echo $OUTPUT->heading(get_string('reportheading', 'local_bandedgrade', $quizname
 groups_print_activity_menu($cm, $url);
 $groupid = (int)groups_get_activity_group($cm, true);
 
+$total = counter::question_total($quiz->id);
 $a = (object)[
-    'total' => counter::question_total($quiz->id),
+    'total' => $total,
     'method' => quiz_get_grading_option_name($quiz->grademethod),
 ];
 echo html_writer::tag('p', get_string('reportintro', 'local_bandedgrade', $a));
@@ -85,6 +87,7 @@ $table->head = [
     get_string('reportscore', 'local_bandedgrade'),
 ];
 $waiting = get_string('reportwaiting', 'local_bandedgrade');
+$percent = $config->ruletype === 'percent' && $total > 0;
 foreach ($rows as $row) {
     $attempts = array_map(fn($attempt) => $attempt->pending ? $waiting : $attempt->correct, $row->attempts);
     $score = $row->score === null ? '-' : format_float($row->score, -1);
@@ -94,7 +97,8 @@ foreach ($rows as $row) {
     $table->data[] = [
         html_writer::link(new moodle_url('/user/view.php', ['id' => $row->userid, 'course' => $course->id]), s($row->name)),
         $attempts ? s(implode(', ', $attempts)) : '-',
-        $row->used === null ? '-' : format_float($row->used, 2, true, true),
+        $row->used === null ? '-' : format_float($row->used, 2, true, true) .
+            ($percent ? ' (' . format_float($row->used / $total * 100, 2, true, true) . '%)' : ''),
         $score,
     ];
 }

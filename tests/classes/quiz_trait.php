@@ -116,13 +116,21 @@ trait quiz_trait {
      * @param array $bands from => score.
      * @param bool $zeroweight Count only the score in the course total.
      * @param bool $enabled On or off.
+     * @param string $ruletype 'bands' (from = number correct) or 'percent' (from = percentage correct).
      */
-    protected function enable(\stdClass $quiz, array $bands, bool $zeroweight = true, bool $enabled = true): void {
+    protected function enable(
+        \stdClass $quiz,
+        array $bands,
+        bool $zeroweight = true,
+        bool $enabled = true,
+        string $ruletype = 'bands'
+    ): void {
         $moduleinfo = (object)[
             'modulename' => 'quiz',
             'instance' => $quiz->id,
             'bandedgrade_enabled' => (int)$enabled,
             'bandedgrade_preset' => '',
+            'bandedgrade_ruletype' => $ruletype,
             'bandedgrade_from' => array_map('strval', array_keys($bands)),
             'bandedgrade_score' => array_map('strval', array_values($bands)),
             'bandedgrade_zeroweight' => (int)$zeroweight,

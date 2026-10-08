@@ -66,7 +66,8 @@ class form_section {
         $presets = bands::presets();
         // A new quiz starts with the first preset (the 0-3 one unless an administrator changed the presets).
         $current = $config && $config->bands ? $config->bands : (reset($presets) ?: []);
-        $preset = bands::matching_preset($current);
+        $ruletype = $config && $config->bands ? $config->ruletype : bands::preset_ruletype((string)array_key_first($presets));
+        $preset = bands::matching_preset($current, $ruletype);
 
         $mform->addElement('header', 'bandedgradehdr', get_string('formheader', 'local_bandedgrade'));
 
@@ -86,7 +87,7 @@ class form_section {
                     'static',
                     'bandedgrade_preview',
                     get_string('preview', 'local_bandedgrade'),
-                    self::preview_html($current, $total)
+                    self::preview_html($current, $total, $ruletype)
                 );
             }
             return;
@@ -102,6 +103,15 @@ class form_section {
         $mform->setDefault('bandedgrade_preset', $preset);
         $mform->hideIf('bandedgrade_preset', 'bandedgrade_enabled');
 
+        $mform->addElement('select', 'bandedgrade_ruletype', get_string('ruletype', 'local_bandedgrade'), [
+            bands::TYPE_COUNT => get_string('ruletype_count', 'local_bandedgrade'),
+            bands::TYPE_PERCENT => get_string('ruletype_percent', 'local_bandedgrade'),
+        ]);
+        $mform->addHelpButton('bandedgrade_ruletype', 'ruletype', 'local_bandedgrade');
+        $mform->setDefault('bandedgrade_ruletype', $ruletype);
+        $mform->hideIf('bandedgrade_ruletype', 'bandedgrade_enabled');
+        $mform->disabledIf('bandedgrade_ruletype', 'bandedgrade_preset', 'neq', '');
+
         $totaltext = $quizid ? get_string('questiontotal', 'local_bandedgrade', $total)
             : get_string('questiontotalnew', 'local_bandedgrade');
         $mform->addElement('static', 'bandedgrade_total', '', $totaltext);
@@ -115,7 +125,15 @@ class form_section {
                     get_string('fromlabel', 'local_bandedgrade', $i + 1),
                     ['size' => 3, 'inputmode' => 'numeric', 'class' => 'local-bandedgrade-from']
                 ),
-                $mform->createElement('static', "bandedgrade_arrow$i", '', get_string('arrow', 'local_bandedgrade')),
+                $mform->createElement(
+                    'static',
+                    "bandedgrade_arrow$i",
+                    '',
+                    \html_writer::span(
+                        get_string($ruletype === bands::TYPE_PERCENT ? 'arrowpercent' : 'arrow', 'local_bandedgrade'),
+                        'local-bandedgrade-arrow'
+                    )
+                ),
                 $mform->createElement(
                     'text',
                     "bandedgrade_score[$i]",
@@ -134,12 +152,29 @@ class form_section {
             $mform->disabledIf("bandedgrade_row$i", 'bandedgrade_preset', 'neq', '');
         }
 
+        // The script reads its settings from a data attribute: they are too long for js_call_amd() arguments.
+        $presetdata = [];
+        foreach ($presets as $key => $presetbands) {
+            $presetdata[$key] = ['ruletype' => bands::preset_ruletype($key), 'bands' => $presetbands];
+        }
+        $jsconfig = [
+            'presets' => $presetdata,
+            'total' => $total,
+            'rows' => bands::MAX_ROWS,
+            'strings' => self::preview_strings() + [
+                'arrow' => get_string('arrow', 'local_bandedgrade'),
+                'arrowpercent' => get_string('arrowpercent', 'local_bandedgrade'),
+            ],
+        ];
         $mform->addElement(
             'static',
             'bandedgrade_preview',
             get_string('preview', 'local_bandedgrade'),
-            \html_writer::div(self::preview_html($current, $total), '', ['id' => 'local_bandedgrade_preview',
-            'aria-live' => 'polite'])
+            \html_writer::div(self::preview_html($current, $total, $ruletype), '', [
+                'id' => 'local_bandedgrade_preview',
+                'aria-live' => 'polite',
+                'data-config' => json_encode($jsconfig),
+            ])
         );
         $mform->hideIf('bandedgrade_preview', 'bandedgrade_enabled');
 
@@ -170,12 +205,7 @@ class form_section {
         $mform->setDefault('bandedgrade_zeroweight', $config ? (int)$config->zeroweight : 1);
         $mform->hideIf('bandedgrade_zeroweight', 'bandedgrade_enabled');
 
-        $PAGE->requires->js_call_amd('local_bandedgrade/form', 'init', [[
-            'presets' => $presets,
-            'total' => $total,
-            'rows' => bands::MAX_ROWS,
-            'strings' => self::preview_strings(),
-        ]]);
+        $PAGE->requires->js_call_amd('local_bandedgrade/form', 'init');
     }
 
     /**
@@ -217,18 +247,19 @@ class form_section {
         $enabled = !empty($moduleinfo->bandedgrade_enabled);
         $zeroweight = !empty($moduleinfo->bandedgrade_zeroweight);
 
-        [$bands, $errors] = self::bands_from_data((array)$moduleinfo);
+        [$bands, $errors, $ruletype] = self::bands_from_data((array)$moduleinfo);
         if ($errors) {
             if ($enabled || !$old) {
                 return $moduleinfo; // Cannot happen after validation; keep what was there.
             }
             $bands = $old->bands; // Turned off with untidy rows: keep the old bands.
+            $ruletype = $old->ruletype;
         }
         if (!$enabled && !$old) {
             return $moduleinfo;
         }
 
-        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight);
+        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype);
         if (!$enabled) {
             if ($old && $old->enabled && $old->zeroweight) {
                 gradebook::set_quiz_weight($quiz, false);
@@ -254,15 +285,22 @@ class form_section {
      * Get the bands from submitted data: a preset, or the rows.
      *
      * @param array $data Submitted data.
-     * @return array [bands, errors] as from bands::from_rows().
+     * @return array [bands, errors, ruletype]: bands and errors as from bands::from_rows(), then the rule type.
      */
     private static function bands_from_data(array $data): array {
         $presets = bands::presets();
         $preset = $data['bandedgrade_preset'] ?? '';
         if ($preset !== '' && isset($presets[$preset])) {
-            return [bands::normalise($presets[$preset]), []];
+            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset)];
         }
-        return bands::from_rows((array)($data['bandedgrade_from'] ?? []), (array)($data['bandedgrade_score'] ?? []));
+        $ruletype = (string)($data['bandedgrade_ruletype'] ?? '');
+        $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
+        [$bands, $errors] = bands::from_rows(
+            (array)($data['bandedgrade_from'] ?? []),
+            (array)($data['bandedgrade_score'] ?? []),
+            $ruletype
+        );
+        return [$bands, $errors, $ruletype];
     }
 
     /**
@@ -271,9 +309,12 @@ class form_section {
      * @return array<string, string> Strings.
      */
     private static function preview_strings(): array {
-        $a = (object)['from' => '{from}', 'to' => '{to}', 'score' => '{score}', 'total' => '{total}'];
+        $a = (object)['from' => '{from}', 'to' => '{to}', 'score' => '{score}', 'total' => '{total}', 'min' => '{min}'];
         $strings = [];
-        foreach (['previewsingle', 'previewrange', 'previewopen', 'previewunreachable', 'previewempty'] as $name) {
+        foreach (
+            ['previewsingle', 'previewrange', 'previewopen', 'previewunreachable', 'previewempty', 'previewpercent',
+            'previewpercentmin'] as $name
+        ) {
             $strings[$name] = get_string($name, 'local_bandedgrade', $a);
         }
         return $strings;
@@ -286,15 +327,22 @@ class form_section {
      *
      * @param array $bands Bands.
      * @param int $total Number of questions (0 if not known yet).
+     * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT.
      * @return string HTML.
      */
-    public static function preview_html(array $bands, int $total): string {
+    public static function preview_html(array $bands, int $total, string $ruletype = bands::TYPE_COUNT): string {
         $bands = bands::normalise($bands);
         if (!$bands) {
             return get_string('previewempty', 'local_bandedgrade');
         }
         $items = [];
         foreach ($bands as $i => $band) {
+            if ($ruletype === bands::TYPE_PERCENT) {
+                $a = (object)['from' => format_float($band['from'], 2, true, true), 'score' => format_float($band['score'], -1),
+                    'total' => $total, 'min' => $total > 0 ? bands::min_correct($band['from'], $total) : null];
+                $items[] = get_string($total > 0 ? 'previewpercentmin' : 'previewpercent', 'local_bandedgrade', $a);
+                continue;
+            }
             $a = (object)['from' => $band['from'], 'score' => format_float($band['score'], -1), 'total' => $total];
             $next = $bands[$i + 1]['from'] ?? null;
             if ($total > 0 && $band['from'] > $total) {

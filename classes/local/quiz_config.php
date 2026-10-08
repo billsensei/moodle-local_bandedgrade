@@ -65,16 +65,24 @@ class quiz_config {
      * @param bool $enabled Whether banded grading is on.
      * @param array $bands Bands as from bands::normalise().
      * @param bool $zeroweight Whether the quiz's own grade should have weight 0.
+     * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT: what the bands' lower bounds measure.
      * @return \stdClass The saved settings (bands decoded).
      */
-    public static function save(int $quizid, int $courseid, bool $enabled, array $bands, bool $zeroweight): \stdClass {
+    public static function save(
+        int $quizid,
+        int $courseid,
+        bool $enabled,
+        array $bands,
+        bool $zeroweight,
+        string $ruletype = bands::TYPE_COUNT
+    ): \stdClass {
         global $DB;
         $record = $DB->get_record(self::TABLE, ['quizid' => $quizid]);
         $data = [
             'quizid' => $quizid,
             'courseid' => $courseid,
             'enabled' => (int)$enabled,
-            'ruletype' => 'bands',
+            'ruletype' => bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT,
             'bands' => bands::encode($bands),
             'zeroweight' => (int)$zeroweight,
             'timemodified' => time(),

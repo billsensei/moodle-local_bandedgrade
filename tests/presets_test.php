@@ -79,7 +79,7 @@ final class presets_test extends \advanced_testcase {
 
     public function test_presets_offered_to_teachers(): void {
         set_config('sitepresets', "Our 0 to 2 | 0=0, 3=1, 7=2\nBroken line", 'local_bandedgrade');
-        $this->assertSame(['zerotothree10', 'passfail10', 'site1'], array_keys(bands::presets()));
+        $this->assertSame(['zerotothree10', 'passfail10', 'zerotothreepct', 'passfailpct', 'site1'], array_keys(bands::presets()));
         $this->assertSame('Our 0 to 2', bands::preset_names()['site1']);
         $this->assertSame('site1', bands::matching_preset([['from' => 7, 'score' => 2], ['from' => 0, 'score' => 0],
             ['from' => 3, 'score' => 1]]));

@@ -25,6 +25,13 @@ A *band* says: "from this many correct answers, give this score". A band lasts u
 - **Or type your own:** pick **My own bands (type them below)**. Then, for each band, type the number correct it starts at and the score.
   The first band must start at **0**. You can leave the extra rows empty.
 
+- **Bands by percentage:** in **Bands are based on**, choose *The percentage of questions answered correctly*
+  (or pick a ready-made set that says "by percentage"). Each band then starts at a percentage, for example
+  *50%*, instead of a number of questions. Use this when quizzes of different lengths should share the same
+  bands. The percentage is worked out from the questions the quiz has **now**, so adding or removing a question
+  changes it for everyone (the same as the quiz's own grade). A student with 2 of 3 correct has 66.67%, so a band
+  starting at 66.67 includes them. With the *average* grading method the average percentage is used.
+
 Under the bands, **What students will get** shows the result as you type, for example:
 
 > 0 correct → score 0
@@ -126,7 +133,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.3.0.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.4.0.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -146,6 +153,8 @@ Moodle's cron must be running. The Recalculate page and changes to bands or ques
 
   The same rules apply as in the quiz settings: the first band starts at 0, at most 10 bands, and at least one score above 0.
   At most 20 sets. If a line is wrong, the page says which line and why, and nothing is saved.
+  To base a set on the percentage correct, write `%` after **every** band start: `Scores by percentage | 0%=0, 10%=1, 50%=2, 90%=3`.
+  Percentages go from 0 to 100, with up to 2 decimals.
 - **Offer the ready-made bands:** untick it to offer only your own sets.
 
 Each quiz keeps a copy of its bands. Changing or removing a set here does not change quizzes that already use it.
@@ -174,6 +183,9 @@ Moodle 5.0 (tested on 5.0.10+), PHP 8.2 or later.
 
 ### Changelog
 
+- **0.4.0** (2026-10-08): bands can start at a percentage of correct questions instead of a number. Two new ready-made
+  sets by percentage. Administrators write a percentage set by putting % after each band start
+  (`Name | 0%=0, 50%=1`). The Number correct page also shows the percentage.
 - **0.3.0** (2026-10-08): administrators can add their own sets of bands, and turn off the ready-made ones. New
   **Number correct** page for each quiz. A warning on the quiz page when the quiz has too few questions to reach a band.
 - **0.2.1** (2026-10-08): hardening. The score column is hidden whenever the quiz grade is hidden (quiz hidden, or marks

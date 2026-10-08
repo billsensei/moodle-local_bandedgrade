@@ -88,13 +88,15 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
 
         // A backup file can be edited: check the bands with the form's rules, and leave it off if they fail.
         $bands = bands::decode($this->config->bands);
-        $valid = bands::are_valid($bands);
+        $ruletype = bands::is_ruletype((string)($this->config->ruletype ?? '')) ? $this->config->ruletype : bands::TYPE_COUNT;
+        $valid = bands::are_valid($bands, $ruletype);
         $config = quiz_config::save(
             $quizid,
             (int)$quiz->course,
             $valid && (bool)$this->config->enabled,
             $valid ? $bands : [],
-            (bool)$this->config->zeroweight
+            (bool)$this->config->zeroweight,
+            $ruletype
         );
 
         // The score column comes back only in a full course restore. In a same-course restore (duplicate, import

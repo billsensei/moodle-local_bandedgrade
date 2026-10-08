@@ -36,6 +36,15 @@ class bands {
     /** @var float Highest score: gradebook grades are NUMBER(10,5) (lib/db/install.xml grade_items.grademax). */
     const MAX_SCORE = 99999;
 
+    /** @var string Rule type: bands on the number of correct questions. */
+    const TYPE_COUNT = 'bands';
+
+    /** @var string Rule type: bands on the percentage of correct questions. */
+    const TYPE_PERCENT = 'percent';
+
+    /** @var string[] Built-in presets that use percentages. */
+    const PERCENT_PRESETS = ['zerotothreepct', 'passfailpct'];
+
     /** @var int Most presets an administrator can add. */
     const MAX_SITE_PRESETS = 20;
 
@@ -59,7 +68,43 @@ class bands {
                 ['from' => 0, 'score' => 0.0],
                 ['from' => 6, 'score' => 1.0],
             ],
+            'zerotothreepct' => [
+                ['from' => 0, 'score' => 0.0],
+                ['from' => 10, 'score' => 1.0],
+                ['from' => 50, 'score' => 2.0],
+                ['from' => 90, 'score' => 3.0],
+            ],
+            'passfailpct' => [
+                ['from' => 0, 'score' => 0.0],
+                ['from' => 60, 'score' => 1.0],
+            ],
         ];
+    }
+
+    /**
+     * Whether a rule type is one the plugin knows.
+     *
+     * @param string $ruletype The rule type.
+     * @return bool True for TYPE_COUNT and TYPE_PERCENT.
+     */
+    public static function is_ruletype(string $ruletype): bool {
+        return in_array($ruletype, [self::TYPE_COUNT, self::TYPE_PERCENT], true);
+    }
+
+    /**
+     * The rule type of a preset from presets().
+     *
+     * @param string $key Preset key.
+     * @return string TYPE_COUNT or TYPE_PERCENT.
+     */
+    public static function preset_ruletype(string $key): string {
+        if (in_array($key, self::PERCENT_PRESETS, true)) {
+            return self::TYPE_PERCENT;
+        }
+        if (preg_match('/^site(\d+)$/', $key, $m)) {
+            return self::site_presets()[(int)$m[1] - 1]['ruletype'] ?? self::TYPE_COUNT;
+        }
+        return self::TYPE_COUNT;
     }
 
     /**
@@ -98,7 +143,7 @@ class bands {
     /**
      * The presets an administrator added (setting local_bandedgrade/sitepresets). Broken lines are left out.
      *
-     * @return array List of ['name' => string, 'bands' => array].
+     * @return array List of ['name' => string, 'bands' => array, 'ruletype' => string].
      */
     public static function site_presets(): array {
         [$presets] = self::parse_site_presets((string)get_config('local_bandedgrade', 'sitepresets'));
@@ -122,6 +167,7 @@ class bands {
                 continue;
             }
             $a = (object)['line' => $index + 1, 'error' => ''];
+            $ruletype = self::TYPE_COUNT;
             $parts = explode('|', $line);
             $name = trim($parts[0]);
             if (count($parts) !== 2 || $name === '' || trim($parts[1]) === '') {
@@ -129,7 +175,7 @@ class bands {
             } else if (\core_text::strlen($name) > self::MAX_NAME) {
                 $a->error = get_string('error_presetname', 'local_bandedgrade', self::MAX_NAME);
             } else {
-                $a->error = self::parse_preset_bands($parts[1], $bands);
+                $a->error = self::parse_preset_bands($parts[1], $bands, $ruletype);
             }
             if ($a->error === '' && count($presets) >= self::MAX_SITE_PRESETS) {
                 $a->error = get_string('error_presetcount', 'local_bandedgrade', self::MAX_SITE_PRESETS);
@@ -138,7 +184,7 @@ class bands {
                 $errors[] = get_string('error_presetline', 'local_bandedgrade', $a);
                 continue;
             }
-            $presets[] = ['name' => $name, 'bands' => $bands];
+            $presets[] = ['name' => $name, 'bands' => $bands, 'ruletype' => $ruletype];
         }
         return [$presets, $errors];
     }
@@ -148,10 +194,12 @@ class bands {
      *
      * @param string $text For example "0=0, 1=1, 5=2, 9=3".
      * @param array|null $bands Set to the bands when the text is fine.
+     * @param string $ruletype Set to TYPE_PERCENT when every band start ends with %, else TYPE_COUNT.
      * @return string An error message, or '' when the text is fine.
      */
-    private static function parse_preset_bands(string $text, ?array &$bands): string {
+    private static function parse_preset_bands(string $text, ?array &$bands, string &$ruletype): string {
         $bands = null;
+        $ruletype = self::TYPE_COUNT;
         $pairs = array_values(array_filter(array_map('trim', preg_split('/[,;]/', $text)), fn($pair) => $pair !== ''));
         if (count($pairs) > self::MAX_ROWS) {
             return get_string('error_presetrows', 'local_bandedgrade', self::MAX_ROWS);
@@ -166,11 +214,20 @@ class bands {
             $froms[] = $sides[0];
             $scores[] = $sides[1];
         }
-        [$result, $errors] = self::from_rows($froms, $scores);
+        $percents = count(array_filter($froms, fn($from) => str_ends_with($from, '%')));
+        if ($percents && $percents !== count($froms)) {
+            return get_string('error_presetmixed', 'local_bandedgrade');
+        }
+        $type = $percents ? self::TYPE_PERCENT : self::TYPE_COUNT;
+        if ($percents) {
+            $froms = array_map(fn($from) => trim(substr($from, 0, -1)), $froms);
+        }
+        [$result, $errors] = self::from_rows($froms, $scores, $type);
         if ($errors) {
             return reset($errors);
         }
         $bands = $result;
+        $ruletype = $type;
         return '';
     }
 
@@ -181,9 +238,11 @@ class bands {
      *
      * @param array $froms Row index => "from" text.
      * @param array $scores Row index => "score" text.
+     * @param string $ruletype TYPE_COUNT (whole numbers of questions) or TYPE_PERCENT (0 to 100, up to 2 decimals).
      * @return array [bands, errors]: bands sorted by from; errors keyed by row index ('all' for the whole table).
      */
-    public static function from_rows(array $froms, array $scores): array {
+    public static function from_rows(array $froms, array $scores, string $ruletype = self::TYPE_COUNT): array {
+        $percent = $ruletype === self::TYPE_PERCENT;
         $bands = [];
         $errors = [];
         $seen = [];
@@ -193,13 +252,21 @@ class bands {
             if ($from === '' && $score === '') {
                 continue;
             }
-            if ($from === '' || !preg_match('/^\d+$/', $from)) {
+            if ($percent) {
+                $from = str_replace(',', '.', $from);
+                if (!preg_match('/^\d+(\.\d{1,2})?$/', $from) || (float)$from > 100) {
+                    $errors[$i] = get_string('error_percent', 'local_bandedgrade');
+                    continue;
+                }
+                $from = (float)$from;
+            } else if ($from === '' || !preg_match('/^\d+$/', $from)) {
                 $errors[$i] = get_string('error_from', 'local_bandedgrade');
                 continue;
-            }
-            if ((int)$from > self::MAX_FROM) {
+            } else if ((int)$from > self::MAX_FROM) {
                 $errors[$i] = get_string('error_frommax', 'local_bandedgrade', self::MAX_FROM);
                 continue;
+            } else {
+                $from = (int)$from;
             }
             $score = str_replace(',', '.', $score);
             if ($score === '' || !preg_match('/^\d+(\.\d{1,5})?$/', $score)) {
@@ -210,12 +277,12 @@ class bands {
                 $errors[$i] = get_string('error_scoremax', 'local_bandedgrade', self::MAX_SCORE);
                 continue;
             }
-            if (isset($seen[(int)$from])) {
-                $errors[$i] = get_string('error_duplicate', 'local_bandedgrade', (int)$from);
+            if (isset($seen[(string)$from])) {
+                $errors[$i] = get_string('error_duplicate', 'local_bandedgrade', $from);
                 continue;
             }
-            $seen[(int)$from] = true;
-            $bands[] = ['from' => (int)$from, 'score' => (float)$score];
+            $seen[(string)$from] = true;
+            $bands[] = ['from' => $from, 'score' => (float)$score];
         }
         if ($errors) {
             return [[], $errors];
@@ -223,8 +290,8 @@ class bands {
         $bands = self::normalise($bands);
         if (count($bands) < 2) {
             $errors['all'] = get_string('error_toofew', 'local_bandedgrade');
-        } else if ($bands[0]['from'] !== 0) {
-            $errors['all'] = get_string('error_nozero', 'local_bandedgrade', $bands[0]['from']);
+        } else if ($bands[0]['from'] != 0) {
+            $errors['all'] = get_string($percent ? 'error_nozeropct' : 'error_nozero', 'local_bandedgrade', $bands[0]['from']);
         } else if (self::max_score($bands) <= 0) {
             $errors['all'] = get_string('error_topzero', 'local_bandedgrade');
         }
@@ -235,9 +302,10 @@ class bands {
      * Check bands that did not come from the form (for example from a backup file) with the same rules.
      *
      * @param array $bands Bands.
+     * @param string $ruletype TYPE_COUNT or TYPE_PERCENT.
      * @return bool True if the form would accept them.
      */
-    public static function are_valid(array $bands): bool {
+    public static function are_valid(array $bands, string $ruletype = self::TYPE_COUNT): bool {
         $froms = [];
         $scores = [];
         foreach (array_values($bands) as $band) {
@@ -247,18 +315,21 @@ class bands {
             $froms[] = (string)$band['from'];
             $scores[] = sprintf('%.5F', (float)$band['score']);
         }
-        [, $errors] = self::from_rows($froms, $scores);
+        [, $errors] = self::from_rows($froms, $scores, $ruletype);
         return !$errors;
     }
 
     /**
-     * Sort bands by lower bound and fix their types.
+     * Sort bands by lower bound and fix their types (a whole "from" is an int, such as 5 or 50; 66.67 stays a float).
      *
      * @param array $bands Bands.
      * @return array Sorted bands.
      */
     public static function normalise(array $bands): array {
-        $bands = array_map(fn($band) => ['from' => (int)$band['from'], 'score' => (float)$band['score']], $bands);
+        $bands = array_map(fn($band) => [
+            'from' => (float)$band['from'] == (int)$band['from'] ? (int)$band['from'] : (float)$band['from'],
+            'score' => (float)$band['score'],
+        ], $bands);
         usort($bands, fn($a, $b) => $a['from'] <=> $b['from']);
         return array_values($bands);
     }
@@ -314,14 +385,33 @@ class bands {
     }
 
     /**
+     * The fewest correct questions that reach a percentage, out of a number of questions.
+     *
+     * Compares the same way the scorer does (percentage rounded to 2 decimals).
+     *
+     * @param float $percent The lower bound of a percentage band.
+     * @param int $total Number of questions that can be counted (above 0).
+     * @return int|null The number of questions, or null if even all of them do not reach it.
+     */
+    public static function min_correct(float $percent, int $total): ?int {
+        for ($correct = 0; $correct <= $total; $correct++) {
+            if (round($correct / $total * 100, 2) >= $percent - 0.00001) {
+                return $correct;
+            }
+        }
+        return null;
+    }
+
+    /**
      * The key of the preset that matches these bands exactly, or '' for custom bands.
      *
      * @param array $bands Bands.
+     * @param string $ruletype TYPE_COUNT or TYPE_PERCENT.
      * @return string Preset key or ''.
      */
-    public static function matching_preset(array $bands): string {
+    public static function matching_preset(array $bands, string $ruletype = self::TYPE_COUNT): string {
         foreach (self::presets() as $key => $preset) {
-            if (self::normalise($preset) == self::normalise($bands)) {
+            if (self::preset_ruletype($key) === $ruletype && self::normalise($preset) == self::normalise($bands)) {
                 return $key;
             }
         }

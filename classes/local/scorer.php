@@ -54,12 +54,12 @@ class scorer {
     const LOCK_WAIT_QUIZ = 120;
 
     /**
-     * The score for a number correct: the band with the highest lower bound not above the count.
+     * The score for a value (number or percentage correct): the band with the highest lower bound not above it.
      *
-     * A count between two bands (possible with the "average" grading method) gets the lower band.
+     * A value between two bands (possible with the "average" grading method) gets the lower band.
      *
      * @param array $bands Bands as from bands::normalise().
-     * @param float|null $count Number correct, or null if there is none yet.
+     * @param float|null $count Number or percentage correct, or null if there is none yet.
      * @return float|null The score, or null (blank).
      */
     public static function score_for_count(array $bands, ?float $count): ?float {
@@ -74,6 +74,38 @@ class scorer {
             $score = $band['score'];
         }
         return $score;
+    }
+
+    /**
+     * The value the bands are compared with: the number correct, or the percentage correct.
+     *
+     * The percentage is of the questions the quiz has now (like the quiz's own grade, which divides by the quiz's
+     * current total) and is rounded to 2 decimals, so 2 of 3 correct is 66.67% and meets a band starting at 66.67.
+     *
+     * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT.
+     * @param float|null $count Number correct that counts, or null if there is none yet.
+     * @param int $total Number of questions that can be counted now.
+     * @return float|null The value, or null (blank) if there is no count, or no question to take a percentage of.
+     */
+    public static function band_value(string $ruletype, ?float $count, int $total): ?float {
+        if ($count === null || $ruletype !== bands::TYPE_PERCENT) {
+            return $count;
+        }
+        return $total > 0 ? round($count / $total * 100, 2) : null;
+    }
+
+    /**
+     * The score for a student's finished attempts: pick the count, turn it into the band value, find the band.
+     *
+     * @param \stdClass $config The quiz settings (ruletype, bands).
+     * @param int $grademethod The quiz's grading method.
+     * @param \stdClass[] $counts The student's finished attempts in order; each has correct and pending.
+     * @param int $total Number of questions that can be counted now.
+     * @return float|null The score, or null (blank).
+     */
+    private static function score_for_attempts(\stdClass $config, int $grademethod, array $counts, int $total): ?float {
+        $count = self::choose_count($grademethod, $counts);
+        return self::score_for_count($config->bands, self::band_value($config->ruletype, $count, $total));
     }
 
     /**
@@ -171,7 +203,7 @@ class scorer {
         self::store_counts($quizid, $attempts, $counts, $userid);
 
         $item = gradebook::ensure_item($config, $quiz);
-        $score = self::score_for_count($config->bands, self::choose_count((int)$quiz->grademethod, $counts));
+        $score = self::score_for_attempts($config, (int)$quiz->grademethod, $counts, counter::question_total($quizid));
         $written = $DB->get_record('local_bandedgrade_written', ['quizid' => $quizid, 'userid' => $userid]);
         $grade = $DB->get_record('grade_grades', ['itemid' => $item->id, 'userid' => $userid], 'id, finalgrade');
 
@@ -234,12 +266,10 @@ class scorer {
         $grades = $DB->get_records('grade_grades', ['itemid' => $item->id], '', 'userid, id, finalgrade');
 
         $results = [];
+        $total = counter::question_total($quizid);
         $userids = array_unique(array_merge(array_keys($byuser), array_keys($writtens)));
         foreach ($userids as $userid) {
-            $score = self::score_for_count(
-                $config->bands,
-                self::choose_count((int)$quiz->grademethod, $byuser[$userid] ?? [])
-            );
+            $score = self::score_for_attempts($config, (int)$quiz->grademethod, $byuser[$userid] ?? [], $total);
             $result = self::write(
                 $item,
                 $quizid,
