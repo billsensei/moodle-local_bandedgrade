@@ -85,6 +85,7 @@ class gradebook {
      * @return \grade_item The item.
      */
     public static function ensure_item(\stdClass $config, \stdClass $quiz): \grade_item {
+        global $DB;
         self::require_lib();
         $name = get_string('itemname', 'local_bandedgrade', $quiz->name);
         $max = bands::max_score($config->bands);
@@ -100,6 +101,7 @@ class gradebook {
                 'grademin' => 0,
                 'grademax' => $max,
                 'iteminfo' => get_string('iteminfo', 'local_bandedgrade'),
+                'hidden' => self::quiz_hidden($quizitem),
             ], false); // False: always a new item, even if another quiz has the same name.
             if ($quizitem) {
                 $item->categoryid = $quizitem->categoryid;
@@ -110,6 +112,9 @@ class gradebook {
             }
             quiz_config::set_grade_item($quiz->id, $item->id);
             $config->gradeitemid = $item->id;
+            // A new, empty column: what we wrote to an old one says nothing about it. Without this every student
+            // would look "cleared by hand" (scorer::is_changed_by_hand()).
+            $DB->delete_records('local_bandedgrade_written', ['quizid' => $quiz->id]);
             return $item;
         }
 
@@ -118,7 +123,34 @@ class gradebook {
             $item->grademax = $max;
             $item->update(self::SOURCE);
         }
+        self::sync_hidden($item, $quiz);
         return $item;
+    }
+
+    /**
+     * The hidden value our column should have: the same as the quiz's own grade.
+     *
+     * Core hides the quiz grade while marks may not be reviewed (a timestamp: hidden until the quiz closes) and while
+     * the quiz is hidden (mod/quiz/lib.php quiz_grade_item_update()). Without a quiz grade item, stay hidden.
+     *
+     * @param \grade_item|null $quizitem The quiz's own grade item.
+     * @return int 0 visible, 1 hidden, or a time until which it is hidden.
+     */
+    private static function quiz_hidden(?\grade_item $quizitem): int {
+        return $quizitem ? (int)$quizitem->hidden : 1;
+    }
+
+    /**
+     * Make our column hidden exactly when (and until when) the quiz's own grade is hidden.
+     *
+     * @param \grade_item $item Our column.
+     * @param \stdClass $quiz The quiz row (needs id and course).
+     */
+    public static function sync_hidden(\grade_item $item, \stdClass $quiz): void {
+        $hidden = self::quiz_hidden(self::quiz_item($quiz));
+        if ((int)$item->hidden !== $hidden) {
+            $item->set_hidden($hidden);
+        }
     }
 
     /**

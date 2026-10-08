@@ -204,9 +204,12 @@ final class observer_test extends \advanced_testcase {
         $quiz = $this->make_frog_quiz(2);
         $this->enable($quiz, [0 => 0, 1 => 1]);
         $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $olditemid = quiz_config::get($quiz->id)->gradeitemid;
 
         reset_course_userdata((object)['id' => $this->course->id, 'reset_gradebook_items' => 1]);
-        $this->assertNull(quiz_config::get($quiz->id)->gradeitemid);
+        $newitemid = quiz_config::get($quiz->id)->gradeitemid;
+        $this->assertNotNull($newitemid);
+        $this->assertNotEquals($olditemid, $newitemid);
 
         $this->attempt($quiz, $student, $this->frogs(1, 2));
         $this->assertEquals(1, $this->score($quiz, $student->id));

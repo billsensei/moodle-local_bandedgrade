@@ -32,11 +32,11 @@ class rescore_quiz extends \core\task\adhoc_task {
      * Queue a rescore of a quiz (once: a matching task already in the queue is reused).
      *
      * @param int $quizid The quiz id.
-     * @param bool $overwrite True to replace scores changed by hand.
+     * @param int[] $overwriteuserids Students whose score changed by hand is replaced (recalculate page only).
      */
-    public static function queue(int $quizid, bool $overwrite = false): void {
+    public static function queue(int $quizid, array $overwriteuserids = []): void {
         $task = new self();
-        $task->set_custom_data(['quizid' => $quizid, 'overwrite' => $overwrite]);
+        $task->set_custom_data(['quizid' => $quizid, 'overwriteuserids' => array_values(array_map('intval', $overwriteuserids))]);
         \core\task\manager::queue_adhoc_task($task, true);
     }
 
@@ -54,7 +54,7 @@ class rescore_quiz extends \core\task\adhoc_task {
      */
     public function execute(): void {
         $data = $this->get_custom_data();
-        $results = scorer::rescore_quiz((int)$data->quizid, !empty($data->overwrite));
+        $results = scorer::rescore_quiz((int)$data->quizid, (array)($data->overwriteuserids ?? []));
         mtrace('local_bandedgrade: quiz ' . (int)$data->quizid . ' ' . json_encode($results));
     }
 }

@@ -110,7 +110,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.2.0.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.2.1.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -121,12 +121,13 @@ Moodle's cron must be running. The Recalculate page and changes to bands or ques
 
 `local/bandedgrade:recalculate` lets someone use the Recalculate page. By default, editing teachers and managers have it.
 It is marked as a data-loss risk because "replace" overwrites scores changed by hand.
-Anyone who can edit the quiz settings can turn the feature on and set the bands.
+Turning the feature on and setting the bands needs both the right to edit the quiz settings and
+`moodle/grade:manage` (set up the gradebook) in the course.
 
 ### Uninstall
 
-*Site administration → Plugins → Plugins overview*, find **Grade by number correct**, click **Uninstall**. The score columns already in
-gradebooks stay; delete them there if needed.
+*Site administration → Plugins → Plugins overview*, find **Grade by number correct**, click **Uninstall**. Uninstalling deletes the score columns
+and gives every quiz its own weight in the course total back.
 
 ### Privacy
 
@@ -139,6 +140,12 @@ Moodle 5.0 (tested on 5.0.10+), PHP 8.2 or later.
 
 ### Changelog
 
+- **0.2.1** (2026-10-08): hardening. The score column is hidden whenever the quiz grade is hidden (quiz hidden, or marks
+  not yet reviewable). Changing the settings needs gradebook rights. The Recalculate page lists only students the teacher
+  can see, and "replace" changes only the students it listed. Limits on scores and band numbers. A score cleared by hand
+  is kept. Two rescores of one quiz no longer run at the same time. Course reset: resetting attempts blanks the scores,
+  resetting gradebook items makes a new column right away with the weight applied again. Uninstall removes the columns
+  and restores the quiz weights.
 - **0.2.0** (2026-10-08): settings are included in backups, course copies, imports and duplicated quizzes.
   Fix: two quizzes with the same name in one course shared one score column; each now gets its own.
 - **0.1.0** (2026-10-08): first release. Bands set in quiz settings with presets and a live preview; scores follow the quiz's

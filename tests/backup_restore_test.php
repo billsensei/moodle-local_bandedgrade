@@ -63,6 +63,24 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * A 4-question quiz with bands 0 → 0, 2 → 1, 4 → 2, a student with 4 correct (score 2) and a student with
+     * 2 correct whose score a teacher changed by hand to 0.5.
+     *
+     * @return array [quiz, first student, second student].
+     */
+    private function quiz_with_two_scores(): array {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $one = $this->getDataGenerator()->create_and_enrol($this->course);
+        $two = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->attempt($quiz, $one, $this->frogs(4, 4));
+        $this->attempt($quiz, $two, $this->frogs(2, 4));
+        $this->run_tasks();
+        $this->item($quiz)->update_final_grade($two->id, 0.5, 'gradebook');
+        return [$quiz, $one, $two];
+    }
+
+    /**
      * The only quiz in a course.
      *
      * @param int $courseid Course id.
@@ -77,14 +95,7 @@ final class backup_restore_test extends \advanced_testcase {
 
     public function test_full_course_backup_and_restore_with_users(): void {
         global $CFG, $USER;
-        $quiz = $this->make_frog_quiz(4);
-        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
-        $one = $this->getDataGenerator()->create_and_enrol($this->course);
-        $two = $this->getDataGenerator()->create_and_enrol($this->course);
-        $this->attempt($quiz, $one, $this->frogs(4, 4));
-        $this->attempt($quiz, $two, $this->frogs(2, 4));
-        $this->run_tasks();
-        $this->item($quiz)->update_final_grade($two->id, 0.5, 'gradebook');
+        [$quiz, $one, $two] = $this->quiz_with_two_scores();
 
         $CFG->keeptempdirectoriesonbackup = true;
         $bc = new backup_controller(
@@ -160,14 +171,7 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     public function test_course_copy_with_user_data(): void {
-        $quiz = $this->make_frog_quiz(4);
-        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
-        $one = $this->getDataGenerator()->create_and_enrol($this->course);
-        $two = $this->getDataGenerator()->create_and_enrol($this->course);
-        $this->attempt($quiz, $one, $this->frogs(4, 4));
-        $this->attempt($quiz, $two, $this->frogs(2, 4));
-        $this->run_tasks();
-        $this->item($quiz)->update_final_grade($two->id, 0.5, 'gradebook');
+        [$quiz, $one, $two] = $this->quiz_with_two_scores();
 
         $newcourseid = $this->copy_course(true);
 
@@ -270,14 +274,7 @@ final class backup_restore_test extends \advanced_testcase {
 
     public function test_restore_into_course_with_grade_categories(): void {
         global $CFG, $DB, $USER;
-        $quiz = $this->make_frog_quiz(4);
-        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
-        $one = $this->getDataGenerator()->create_and_enrol($this->course);
-        $two = $this->getDataGenerator()->create_and_enrol($this->course);
-        $this->attempt($quiz, $one, $this->frogs(4, 4));
-        $this->attempt($quiz, $two, $this->frogs(2, 4));
-        $this->run_tasks();
-        $this->item($quiz)->update_final_grade($two->id, 0.5, 'gradebook');
+        [$quiz, $one, $two] = $this->quiz_with_two_scores();
 
         // A course that already has its own grade category: core then skips the gradebook part of the restore
         // (restore_gradebook_structure_step::execute_condition()), so our column is not in what gets restored.

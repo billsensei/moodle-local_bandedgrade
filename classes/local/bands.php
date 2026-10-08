@@ -30,6 +30,12 @@ class bands {
     /** @var int Number of band rows shown in the settings form. */
     const MAX_ROWS = 10;
 
+    /** @var int Highest "from" allowed (no quiz has more questions than this). */
+    const MAX_FROM = 10000;
+
+    /** @var float Highest score: gradebook grades are NUMBER(10,5) (lib/db/install.xml grade_items.grademax). */
+    const MAX_SCORE = 99999;
+
     /**
      * Built-in presets: key => bands. Names are the lang strings 'preset_<key>'.
      *
@@ -73,9 +79,17 @@ class bands {
                 $errors[$i] = get_string('error_from', 'local_bandedgrade');
                 continue;
             }
+            if ((int)$from > self::MAX_FROM) {
+                $errors[$i] = get_string('error_frommax', 'local_bandedgrade', self::MAX_FROM);
+                continue;
+            }
             $score = str_replace(',', '.', $score);
-            if ($score === '' || !is_numeric($score) || (float)$score < 0) {
+            if ($score === '' || !preg_match('/^\d+(\.\d{1,5})?$/', $score)) {
                 $errors[$i] = get_string('error_score', 'local_bandedgrade');
+                continue;
+            }
+            if ((float)$score > self::MAX_SCORE) {
+                $errors[$i] = get_string('error_scoremax', 'local_bandedgrade', self::MAX_SCORE);
                 continue;
             }
             if (isset($seen[(int)$from])) {
@@ -97,6 +111,26 @@ class bands {
             $errors['all'] = get_string('error_topzero', 'local_bandedgrade');
         }
         return [$errors ? [] : $bands, $errors];
+    }
+
+    /**
+     * Check bands that did not come from the form (for example from a backup file) with the same rules.
+     *
+     * @param array $bands Bands.
+     * @return bool True if the form would accept them.
+     */
+    public static function are_valid(array $bands): bool {
+        $froms = [];
+        $scores = [];
+        foreach (array_values($bands) as $band) {
+            if (!is_array($band) || !isset($band['from'], $band['score']) || count($froms) >= self::MAX_ROWS) {
+                return false;
+            }
+            $froms[] = (string)$band['from'];
+            $scores[] = sprintf('%.5F', (float)$band['score']);
+        }
+        [, $errors] = self::from_rows($froms, $scores);
+        return !$errors;
     }
 
     /**

@@ -53,6 +53,10 @@ foreach (['slot_created', 'slot_deleted', 'slot_mark_updated'] as $name) {
 }
 
 $observers[] = [
+    'eventname' => '\\core\\event\\course_module_updated',
+    'callback' => '\\local_bandedgrade\\observer::course_module_updated',
+];
+$observers[] = [
     'eventname' => '\\core\\event\\course_module_deleted',
     'callback' => '\\local_bandedgrade\\observer::course_module_deleted',
 ];

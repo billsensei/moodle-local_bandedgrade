@@ -44,6 +44,15 @@ class scorer {
     /** @var string Result: the grade or grade item is locked, so it was left alone. */
     const RESULT_LOCKED = 'locked';
 
+    /** @var string Result: another rescore of the quiz was running, so a background rescore was queued instead. */
+    const RESULT_QUEUED = 'queued';
+
+    /** @var int Seconds a student's rescore waits for another rescore of the same quiz before handing over. */
+    const LOCK_WAIT_USER = 5;
+
+    /** @var int Seconds a whole-quiz rescore waits for another rescore of the same quiz. */
+    const LOCK_WAIT_QUIZ = 120;
+
     /**
      * The score for a number correct: the band with the highest lower bound not above the count.
      *
@@ -121,6 +130,31 @@ class scorer {
      * @return string|null One of the RESULT_ constants, or null if banded grading is off for this quiz.
      */
     public static function rescore_user(int $quizid, int $userid, bool $overwrite = false): ?string {
+        if (!quiz_config::get_enabled($quizid)) {
+            return null;
+        }
+        $lock = self::get_lock($quizid, self::LOCK_WAIT_USER);
+        if (!$lock) {
+            // Another rescore of this quiz is running: let the background task catch this student up.
+            \local_bandedgrade\task\rescore_quiz::queue($quizid);
+            return self::RESULT_QUEUED;
+        }
+        try {
+            return self::rescore_user_locked($quizid, $userid, $overwrite);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * rescore_user() once the quiz lock is held.
+     *
+     * @param int $quizid The quiz id.
+     * @param int $userid The student.
+     * @param bool $overwrite True to replace a score changed by hand.
+     * @return string|null One of the RESULT_ constants, or null if banded grading is off.
+     */
+    private static function rescore_user_locked(int $quizid, int $userid, bool $overwrite): ?string {
         global $DB;
         [$config, $quiz] = self::load($quizid);
         if (!$config) {
@@ -148,10 +182,33 @@ class scorer {
      * Recount every attempt in a quiz and update every student's score.
      *
      * @param int $quizid The quiz id.
-     * @param bool $overwrite True to replace scores changed by hand (recalculate page only).
+     * @param int[] $overwriteuserids Students whose score changed by hand is replaced (recalculate page only).
      * @return array<string, int> Number of students per RESULT_ constant (empty if banded grading is off).
+     * @throws \moodle_exception If another rescore of the quiz holds the lock too long (the task then retries).
      */
-    public static function rescore_quiz(int $quizid, bool $overwrite = false): array {
+    public static function rescore_quiz(int $quizid, array $overwriteuserids = []): array {
+        if (!quiz_config::get_enabled($quizid)) {
+            return [];
+        }
+        $lock = self::get_lock($quizid, self::LOCK_WAIT_QUIZ);
+        if (!$lock) {
+            throw new \moodle_exception('locktimeout', 'local_bandedgrade');
+        }
+        try {
+            return self::rescore_quiz_locked($quizid, array_map('intval', $overwriteuserids));
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * rescore_quiz() once the quiz lock is held.
+     *
+     * @param int $quizid The quiz id.
+     * @param int[] $overwriteuserids Students whose score changed by hand is replaced.
+     * @return array<string, int> Number of students per RESULT_ constant.
+     */
+    private static function rescore_quiz_locked(int $quizid, array $overwriteuserids): array {
         global $DB;
         [$config, $quiz] = self::load($quizid);
         if (!$config) {
@@ -188,7 +245,7 @@ class scorer {
                 $quizid,
                 (int)$userid,
                 $score,
-                $overwrite,
+                in_array((int)$userid, $overwriteuserids, true),
                 $writtens[$userid] ?? null,
                 $grades[$userid] ?? null
             );
@@ -211,19 +268,15 @@ class scorer {
             return [];
         }
         $writtens = $DB->get_records('local_bandedgrade_written', ['quizid' => $quizid], '', 'userid, id, score');
-        $grades = $DB->get_records_select(
-            'grade_grades',
-            'itemid = :itemid AND finalgrade IS NOT NULL',
-            ['itemid' => $item->id],
-            '',
-            'userid, id, finalgrade'
-        );
+        $grades = $DB->get_records('grade_grades', ['itemid' => $item->id], '', 'userid, id, finalgrade');
         $changed = [];
-        foreach ($grades as $userid => $grade) {
-            if (self::is_changed_by_hand($writtens[$userid] ?? null, (float)$grade->finalgrade)) {
+        foreach (array_unique(array_merge(array_keys($grades), array_keys($writtens))) as $userid) {
+            $current = isset($grades[$userid]->finalgrade) ? (float)$grades[$userid]->finalgrade : null;
+            if (self::is_changed_by_hand($writtens[$userid] ?? null, $current)) {
                 $changed[] = (int)$userid;
             }
         }
+        sort($changed);
         return $changed;
     }
 
@@ -254,6 +307,7 @@ class scorer {
         if ($userid !== null) {
             $conditions['userid'] = $userid;
         }
+        $transaction = $DB->start_delegated_transaction();
         $DB->delete_records('local_bandedgrade_attempt', $conditions);
         $now = time();
         $rows = [];
@@ -268,16 +322,33 @@ class scorer {
             ];
         }
         $DB->insert_records('local_bandedgrade_attempt', $rows);
+        $transaction->allow_commit();
+    }
+
+    /**
+     * Take the lock that keeps two rescores of the same quiz from running at once.
+     *
+     * @param int $quizid The quiz id.
+     * @param int $wait Seconds to wait for it.
+     * @return \core\lock\lock|false The lock, or false if it was not free in time.
+     */
+    private static function get_lock(int $quizid, int $wait) {
+        return \core\lock\lock_config::get_lock_factory('local_bandedgrade')->get_lock('quiz' . $quizid, $wait);
     }
 
     /**
      * Whether a score in the gradebook was changed by hand (it is not the score we last wrote).
      *
+     * A blank counts as a change when we had written a score: the teacher cleared it.
+     *
      * @param \stdClass|null $written Our last written score row.
-     * @param float $current The score now in the gradebook (not blank).
+     * @param float|null $current The score now in the gradebook, or null if blank.
      * @return bool True if a teacher changed it.
      */
-    private static function is_changed_by_hand(?\stdClass $written, float $current): bool {
+    private static function is_changed_by_hand(?\stdClass $written, ?float $current): bool {
+        if ($current === null) {
+            return $written !== null && $written->score !== null;
+        }
         return !$written || $written->score === null || self::differ((float)$written->score, $current);
     }
 
@@ -304,7 +375,7 @@ class scorer {
     ): string {
         $current = ($grade && $grade->finalgrade !== null) ? (float)$grade->finalgrade : null;
 
-        if (!$overwrite && $current !== null && self::is_changed_by_hand($written, $current)) {
+        if (!$overwrite && self::is_changed_by_hand($written, $current)) {
             return self::RESULT_KEPT;
         }
         if (!self::differ($current, $score)) {

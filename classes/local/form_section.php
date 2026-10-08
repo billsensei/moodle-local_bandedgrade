@@ -40,6 +40,16 @@ class form_section {
     }
 
     /**
+     * Whether the current user may change the gradebook setup of a course (create columns, change weights).
+     *
+     * @param int $courseid The course id.
+     * @return bool True if allowed.
+     */
+    private static function can_manage_gradebook(int $courseid): bool {
+        return has_capability('moodle/grade:manage', \context_course::instance($courseid));
+    }
+
+    /**
      * Add the section to the quiz settings form.
      *
      * @param \moodleform_mod $formwrapper The form.
@@ -58,6 +68,28 @@ class form_section {
         $preset = $config ? bands::matching_preset($current) : 'zerotothree10';
 
         $mform->addElement('header', 'bandedgradehdr', get_string('formheader', 'local_bandedgrade'));
+
+        // The section creates gradebook columns and changes course-total weights, so it needs gradebook rights,
+        // not just the right to edit the quiz. Others only see how it is set up.
+        if (!self::can_manage_gradebook((int)$formwrapper->get_course()->id)) {
+            $enabled = $config && $config->enabled;
+            $mform->addElement(
+                'static',
+                'bandedgrade_readonly',
+                get_string('enabled', 'local_bandedgrade'),
+                get_string($enabled ? 'statuson' : 'statusoff', 'local_bandedgrade') . ' ' .
+                get_string('nogrademanage', 'local_bandedgrade')
+            );
+            if ($enabled) {
+                $mform->addElement(
+                    'static',
+                    'bandedgrade_preview',
+                    get_string('preview', 'local_bandedgrade'),
+                    self::preview_html($current, $total)
+                );
+            }
+            return;
+        }
 
         $mform->addElement('advcheckbox', 'bandedgrade_enabled', get_string('enabled', 'local_bandedgrade'));
         $mform->addHelpButton('bandedgrade_enabled', 'enabled', 'local_bandedgrade');
@@ -169,6 +201,9 @@ class form_section {
         global $DB;
         if (($moduleinfo->modulename ?? '') !== 'quiz' || !isset($moduleinfo->bandedgrade_enabled)) {
             return $moduleinfo;
+        }
+        if (!self::can_manage_gradebook((int)$course->id)) {
+            return $moduleinfo; // The form does not offer the section then; ignore anything posted anyway.
         }
         $quiz = $DB->get_record('quiz', ['id' => $moduleinfo->instance], 'id, course, name, grademethod', MUST_EXIST);
         $old = quiz_config::get($quiz->id);

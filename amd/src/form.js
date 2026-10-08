@@ -60,7 +60,8 @@ const readBands = (form, rows) => {
         }
         const fromText = from.value.trim();
         const scoreText = score.value.trim().replace(',', '.');
-        if (!/^\d+$/.test(fromText) || scoreText === '' || isNaN(Number(scoreText))) {
+        // The same rules as bands::from_rows() in PHP, so the preview never shows a band the server would refuse.
+        if (!/^\d+$/.test(fromText) || !/^\d+(\.\d{1,5})?$/.test(scoreText)) {
             continue;
         }
         bands.push({from: parseInt(fromText, 10), score: Number(scoreText)});

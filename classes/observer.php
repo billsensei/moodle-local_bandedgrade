@@ -81,6 +81,27 @@ class observer {
     }
 
     /**
+     * A quiz was shown, hidden or edited: hide our column exactly when the quiz's own grade is hidden.
+     *
+     * Hiding an activity from the course page hides its grade item and then fires this event
+     * (course/format/classes/stateactions.php).
+     *
+     * @param \core\event\course_module_updated $event The event.
+     */
+    public static function course_module_updated(\core\event\course_module_updated $event): void {
+        global $DB;
+        if ($event->other['modulename'] !== 'quiz') {
+            return;
+        }
+        $config = quiz_config::get_enabled((int)$event->other['instanceid']);
+        $item = $config ? gradebook::get_item($config) : null;
+        $quiz = $item ? $DB->get_record('quiz', ['id' => $config->quizid], 'id, course') : null;
+        if ($quiz) {
+            gradebook::sync_hidden($item, $quiz);
+        }
+    }
+
+    /**
      * A quiz was deleted: remove our grade item and our data. Core does not remove a manual grade item.
      *
      * @param \core\event\course_module_deleted $event The event.
@@ -105,20 +126,41 @@ class observer {
     public static function course_reset_ended(\core\event\course_reset_ended $event): void {
         global $DB;
         $options = (array)($event->other['reset_options'] ?? []);
-        $quizids = $DB->get_fieldset_select(quiz_config::TABLE, 'quizid', 'courseid = ?', [$event->courseid]);
-        if (!$quizids) {
-            return;
-        }
-        [$insql, $params] = $DB->get_in_or_equal($quizids);
-        if (!empty($options['reset_quiz_attempts'])) {
-            $DB->delete_records_select('local_bandedgrade_attempt', "quizid $insql", $params);
-            $DB->delete_records_select('local_bandedgrade_written', "quizid $insql", $params);
-        }
-        if (!empty($options['reset_gradebook_grades']) || !empty($options['reset_gradebook_items'])) {
-            $DB->delete_records_select('local_bandedgrade_written', "quizid $insql", $params);
-        }
-        if (!empty($options['reset_gradebook_items'])) {
-            $DB->set_field_select(quiz_config::TABLE, 'gradeitemid', null, "quizid $insql", $params);
+        $attempts = !empty($options['reset_quiz_attempts']);
+        $grades = !empty($options['reset_gradebook_grades']);
+        $items = !empty($options['reset_gradebook_items']);
+        $configs = $DB->get_records(quiz_config::TABLE, ['courseid' => $event->courseid]);
+        foreach ($configs as $record) {
+            $quizid = (int)$record->quizid;
+            $config = quiz_config::get($quizid);
+            if ($attempts && !$grades && !$items) {
+                // Core resets only the quiz's own grades here (quiz_reset_gradebook()), so our column still holds
+                // last term's scores. The attempts behind them are gone: blank them too.
+                $item = gradebook::get_item($config);
+                if ($item) {
+                    $item->delete_all_grades('reset');
+                }
+            }
+            if ($attempts) {
+                $DB->delete_records('local_bandedgrade_attempt', ['quizid' => $quizid]);
+            }
+            if ($attempts || $grades || $items) {
+                // Our column is now empty (or gone), so what we last wrote no longer applies.
+                $DB->delete_records('local_bandedgrade_written', ['quizid' => $quizid]);
+            }
+            if ($items) {
+                // Core removed every grade item and re-created the quizzes' own ones with default weights.
+                quiz_config::set_grade_item($quizid, null);
+                $config->gradeitemid = null;
+                $quiz = $DB->get_record('quiz', ['id' => $quizid], 'id, course, name');
+                if ($config->enabled && $quiz) {
+                    gradebook::ensure_item($config, $quiz);
+                    if ($config->zeroweight) {
+                        gradebook::set_quiz_weight($quiz, true);
+                    }
+                    rescore_quiz::queue($quizid);
+                }
+            }
         }
     }
 

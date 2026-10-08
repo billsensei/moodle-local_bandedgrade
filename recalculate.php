@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * "Recalculate scores" page for a quiz: keep or overwrite scores changed by hand (PLAN-bandedgrade.md §3a).
+ * "Recalculate scores" page for a quiz: keep or overwrite scores changed by hand.
  *
  * @package    local_bandedgrade
  * @copyright  2026 Site administrators
@@ -30,11 +30,15 @@ require(__DIR__ . '/../../config.php');
 $cmid = required_param('cmid', PARAM_INT);
 $mode = optional_param('mode', '', PARAM_ALPHA);
 $confirm = optional_param('confirm', 0, PARAM_BOOL);
+$confirmedusers = optional_param('users', '', PARAM_SEQUENCE);
 
 [$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
 require_login($course, false, $cm);
 $context = context_module::instance($cm->id);
 require_capability('local/bandedgrade:recalculate', $context);
+if ($mode !== '') {
+    require_sesskey();
+}
 $quiz = $DB->get_record('quiz', ['id' => $cm->instance], 'id, course, name', MUST_EXIST);
 
 $url = new moodle_url('/local/bandedgrade/recalculate.php', ['cmid' => $cmid]);
@@ -52,9 +56,16 @@ if (!quiz_config::get_enabled($quiz->id)) {
     exit;
 }
 
+// Students whose score was changed by hand and whom this teacher may see (groups are respected).
+$users = recalculate::changed_by_hand_users($quiz->id, $cm, $context);
+
 if ($mode === 'keep' || ($mode === 'overwrite' && $confirm)) {
-    require_sesskey();
-    recalculate::request($quiz, $context, $mode === 'overwrite');
+    // Overwrite only the students listed on the confirmation, if they are still changed by hand and visible.
+    $overwrite = [];
+    if ($mode === 'overwrite') {
+        $overwrite = array_values(array_intersect(array_map('intval', explode(',', $confirmedusers)), array_keys($users)));
+    }
+    recalculate::request($quiz, $context, $overwrite);
     redirect(
         $returnurl,
         get_string('recalculatequeued', 'local_bandedgrade'),
@@ -63,19 +74,18 @@ if ($mode === 'keep' || ($mode === 'overwrite' && $confirm)) {
     );
 }
 
-$names = recalculate::changed_by_hand_names($quiz->id);
 $quizname = format_string($quiz->name, true, ['context' => $context]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('recalculateheading', 'local_bandedgrade', $quizname));
 
 if ($mode === 'overwrite') {
-    // Second step: confirm before replacing scores changed by hand.
-    require_sesskey();
-    $a = (object)['count' => count($names), 'names' => implode(', ', $names)];
+    // Second step: confirm before replacing scores changed by hand. confirm() prints the message as HTML.
+    $a = (object)['count' => count($users), 'names' => implode(', ', array_map('s', $users))];
     echo $OUTPUT->confirm(
         get_string('overwriteconfirm', 'local_bandedgrade', $a),
-        new moodle_url($url, ['mode' => 'overwrite', 'confirm' => 1, 'sesskey' => sesskey()]),
+        new moodle_url($url, ['mode' => 'overwrite', 'confirm' => 1, 'users' => implode(',', array_keys($users)),
+            'sesskey' => sesskey()]),
         $url
     );
 } else {
@@ -83,8 +93,8 @@ if ($mode === 'overwrite') {
         'action' => $url->out(false),
         'cmid' => $cmid,
         'sesskey' => sesskey(),
-        'changedcount' => count($names),
-        'changednames' => implode(', ', $names),
+        'changedcount' => count($users),
+        'changednames' => implode(', ', $users),
         'cancelurl' => $returnurl->out(false),
     ]);
 }

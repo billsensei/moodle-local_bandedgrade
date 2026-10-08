@@ -86,11 +86,14 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
             return;
         }
 
+        // A backup file can be edited: check the bands with the form's rules, and leave it off if they fail.
+        $bands = bands::decode($this->config->bands);
+        $valid = bands::are_valid($bands);
         $config = quiz_config::save(
             $quizid,
             (int)$quiz->course,
-            (bool)$this->config->enabled,
-            bands::decode($this->config->bands),
+            $valid && (bool)$this->config->enabled,
+            $valid ? $bands : [],
             (bool)$this->config->zeroweight
         );
 
@@ -111,10 +114,12 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
             // Last written scores only make sense next to the restored grades.
             foreach ($this->writtens as $written) {
                 $userid = $this->get_mappingid('user', $written->userid);
-                if ($userid) {
-                    $DB->insert_record('local_bandedgrade_written', (object)['quizid' => $quizid, 'userid' => $userid,
-                        'score' => $written->score, 'timemodified' => $written->timemodified]);
+                $score = $written->score === null ? null : (float)$written->score;
+                if (!$userid || ($score !== null && ($score < 0 || $score > bands::MAX_SCORE))) {
+                    continue;
                 }
+                $DB->insert_record('local_bandedgrade_written', (object)['quizid' => $quizid, 'userid' => $userid,
+                    'score' => $score, 'timemodified' => (int)$written->timemodified]);
             }
         }
 

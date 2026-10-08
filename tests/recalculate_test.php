@@ -48,11 +48,12 @@ final class recalculate_test extends \advanced_testcase {
         $this->attempt($quiz, $student, $this->frogs(2, 2));
         $this->run_tasks();
         $this->item($quiz)->update_final_grade($student->id, 0.5, 'gradebook');
-        $this->assertSame([fullname($student)], recalculate::changed_by_hand_names($quiz->id));
+        $cm = get_fast_modinfo($this->course)->get_cm($quiz->cmid);
         $context = \context_module::instance($quiz->cmid);
+        $this->assertSame([(int)$student->id => fullname($student)], recalculate::changed_by_hand_users($quiz->id, $cm, $context));
 
         $sink = $this->redirectEvents();
-        recalculate::request($quiz, $context, false);
+        recalculate::request($quiz, $context);
         $events = $sink->get_events();
         $this->assertInstanceOf(event\scores_recalculated::class, $events[0]);
         $this->assertSame(0, $events[0]->other['overwrite']);
@@ -62,7 +63,7 @@ final class recalculate_test extends \advanced_testcase {
         $this->assertEquals(0.5, $this->score($quiz, $student->id), 'Keep: the change by hand stays.');
 
         $sink = $this->redirectEvents();
-        recalculate::request($quiz, $context, true);
+        recalculate::request($quiz, $context, [(int)$student->id]);
         $this->assertSame(1, $sink->get_events()[0]->other['overwrite']);
         $sink->close();
         $this->run_tasks();
