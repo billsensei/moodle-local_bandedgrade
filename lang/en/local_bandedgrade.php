@@ -41,6 +41,8 @@ $string['error_from'] = 'Type a whole number of correct answers, like 0, 1 or 5.
 $string['error_frommax'] = 'Use a number of correct answers up to {$a}.';
 $string['error_nozero'] = 'The first band must start at 0 correct. Right now it starts at {$a}, so students with fewer correct answers would get no score.';
 $string['error_nozeropct'] = 'The first band must start at 0%. Right now it starts at {$a}%, so students with a lower percentage would get no score.';
+$string['error_passmark'] = 'The pass mark must be at least 1 correct answer. With 0, every student would pass.';
+$string['error_passmarkpct'] = 'The pass mark must be above 0%. With 0%, every student would pass.';
 $string['error_percent'] = 'Type a percentage from 0 to 100, like 0, 50 or 66.67 (at most 2 decimal places).';
 $string['error_presetcount'] = 'There can be at most {$a} sets of bands. Remove a line.';
 $string['error_presetformat'] = 'Write the name, then a | sign, then the bands. For example: Scores 0 to 3 | 0=0, 1=1, 5=2, 9=3';
@@ -58,6 +60,7 @@ $string['eventreportviewed_desc'] = 'The user with id \'{$a->userid}\' viewed th
 $string['eventscoresrecalculated'] = 'Number-correct scores recalculated';
 $string['eventscoresrecalculated_keep'] = 'The user with id \'{$a->userid}\' asked to recalculate the number-correct scores of the quiz with course module id \'{$a->cmid}\', keeping scores changed by hand.';
 $string['eventscoresrecalculated_overwrite'] = 'The user with id \'{$a->userid}\' asked to recalculate the number-correct scores of the quiz with course module id \'{$a->cmid}\', replacing scores changed by hand.';
+$string['failscore'] = 'Score for a fail';
 $string['formheader'] = 'Grade by number correct';
 $string['fromlabel'] = 'Band {$a}: from this many correct';
 $string['iteminfo'] = 'Score based on the number of fully correct questions. Filled in automatically by "Grade by number correct".';
@@ -68,6 +71,12 @@ $string['modeoverwrite'] = 'Recalculate everything, and replace the scores I cha
 $string['nochanges'] = 'No scores have been changed by hand.';
 $string['nogrademanage'] = 'Only teachers who can set up the gradebook can change this.';
 $string['overwriteconfirm'] = 'This replaces the scores you changed by hand for these students ({$a->count}): {$a->names}. Their scores will come from their quiz answers again. You cannot undo this. Continue?';
+$string['passfailbasedon'] = 'The pass mark is';
+$string['passmark'] = 'Pass mark';
+$string['passmark_help'] = 'Students pass when they reach this number of correct answers, or this percentage, depending on what you chose above. Students below it fail.
+
+Example: with a pass mark of 6 correct answers, a student with 6 or more correct passes and a student with 5 fails.';
+$string['passscore'] = 'Score for a pass';
 $string['pluginname'] = 'Grade by number correct';
 $string['preset'] = 'Bands';
 $string['preset_custom'] = 'My own bands (type them below)';
@@ -130,6 +139,12 @@ $string['ruletype_help'] = 'Choose what the bands measure.
 
 With "Number correct" a band can be out of reach if the quiz has too few questions. With percentages, 100% is always reachable.';
 $string['ruletype_percent'] = 'The percentage of questions answered correctly';
+$string['scheme'] = 'How to give scores';
+$string['scheme_bands'] = 'A list of bands (several scores)';
+$string['scheme_help'] = '**A list of bands:** give different scores for different numbers correct, such as 0 to 3.
+
+**Pass or fail:** give one score for a pass and another for a fail. You type only the pass mark. The pass score is also set as the "grade to pass" of the gradebook column, so the gradebook shows pass and fail, and activity completion can require a passing grade.';
+$string['scheme_passfail'] = 'Pass or fail (one pass mark)';
 $string['scorelabel'] = 'Band {$a}: score';
 $string['sitepresets'] = 'Sets of bands';
 $string['sitepresets_desc'] = 'One set per line: a name, a | sign, then the bands. Each band is "from this many correct = score", with commas between bands. The first band must start at 0. For example:<br><code>Scores 0 to 3 | 0=0, 1=1, 5=2, 9=3</code><br><code>Pass or fail (6 of 10) | 0=0, 6=1</code><br>To base the bands on the percentage correct, write % after every band start:<br><code>Scores by percentage | 0%=0, 10%=1, 50%=2, 90%=3</code>';

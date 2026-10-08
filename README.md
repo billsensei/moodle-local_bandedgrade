@@ -32,6 +32,12 @@ A *band* says: "from this many correct answers, give this score". A band lasts u
   changes it for everyone (the same as the quiz's own grade). A student with 2 of 3 correct has 66.67%, so a band
   starting at 66.67 includes them. With the *average* grading method the average percentage is used.
 
+- **Pass or fail:** if you only need a pass or a fail, set **How to give scores** to *Pass or fail (one pass mark)*.
+  Type the **pass mark** (a number of correct questions, or a percentage if you change **The pass mark is**) and the
+  score for a pass (1 unless you change it) and for a fail (0). Students at or above the pass mark pass; the others
+  fail. The pass score is also set as the **grade to pass** of the gradebook column, so the gradebook shows pass and
+  fail and the activity can require a passing grade. Going back to *A list of bands* takes that grade to pass back.
+
 Under the bands, **What students will get** shows the result as you type, for example:
 
 > 0 correct → score 0
@@ -133,7 +139,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.4.1.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.5.0.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -183,6 +189,9 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.5.0** (2026-10-09): new **Pass or fail (one pass mark)** way to give scores: type the pass mark and the two
+  scores. It sets the gradebook column's grade to pass. Needs a database upgrade (one new setting per quiz); quizzes
+  that already use bands are not changed.
 - **0.4.1** (2026-10-08): now supports Moodle 5.1 and 5.2 (tested with automated checks on 5.0, 5.1 and 5.2). No change
   to how the plugin works.
 - **0.4.0** (2026-10-08): bands can start at a percentage of correct questions instead of a number. Two new ready-made

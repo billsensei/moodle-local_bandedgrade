@@ -89,6 +89,7 @@ class gradebook {
         self::require_lib();
         $name = get_string('itemname', 'local_bandedgrade', $quiz->name);
         $max = bands::max_score($config->bands);
+        $gradepass = self::pass_grade($config);
 
         $item = self::get_item($config);
         if (!$item) {
@@ -100,6 +101,7 @@ class gradebook {
                 'gradetype' => GRADE_TYPE_VALUE,
                 'grademin' => 0,
                 'grademax' => $max,
+                'gradepass' => $gradepass ?? 0,
                 'iteminfo' => get_string('iteminfo', 'local_bandedgrade'),
                 'hidden' => self::quiz_hidden($quizitem),
             ], false); // False: always a new item, even if another quiz has the same name.
@@ -118,13 +120,46 @@ class gradebook {
             return $item;
         }
 
-        if ($item->itemname !== $name || grade_floats_different($item->grademax, $max)) {
+        // The grade to pass is ours only in the pass/fail scheme; with bands a teacher may set their own.
+        $passchanged = $gradepass !== null && grade_floats_different($item->gradepass, $gradepass);
+        if ($item->itemname !== $name || grade_floats_different($item->grademax, $max) || $passchanged) {
             $item->itemname = $name;
             $item->grademax = $max;
+            if ($passchanged) {
+                $item->gradepass = $gradepass;
+            }
             $item->update(self::SOURCE);
         }
         self::sync_hidden($item, $quiz);
         return $item;
+    }
+
+    /**
+     * The "grade to pass" of our column in the pass/fail scheme: the pass score, so Moodle shows pass and fail and
+     * "require passing grade" works.
+     *
+     * @param \stdClass $config The quiz settings.
+     * @return float|null The grade to pass, 0 if a pass does not score more than a fail, or null with bands (not ours).
+     */
+    public static function pass_grade(\stdClass $config): ?float {
+        $passfail = $config->scheme === bands::SCHEME_PASSFAIL ? bands::to_passfail($config->bands) : null;
+        if (!$passfail) {
+            return null;
+        }
+        return $passfail[1] > $passfail[2] ? (float)$passfail[1] : 0.0;
+    }
+
+    /**
+     * Take back the grade to pass that the pass/fail scheme set (when a quiz goes back to bands).
+     *
+     * @param \stdClass $config The quiz settings.
+     */
+    public static function clear_pass_grade(\stdClass $config): void {
+        $item = self::get_item($config);
+        if ($item && grade_floats_different($item->gradepass, 0)) {
+            $item->gradepass = 0;
+            $item->update(self::SOURCE);
+        }
     }
 
     /**

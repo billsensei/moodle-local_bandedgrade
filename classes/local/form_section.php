@@ -68,6 +68,8 @@ class form_section {
         $current = $config && $config->bands ? $config->bands : (reset($presets) ?: []);
         $ruletype = $config && $config->bands ? $config->ruletype : bands::preset_ruletype((string)array_key_first($presets));
         $preset = bands::matching_preset($current, $ruletype);
+        $passfail = $config && $config->scheme === bands::SCHEME_PASSFAIL ? bands::to_passfail($config->bands) : null;
+        $scheme = $passfail ? bands::SCHEME_PASSFAIL : bands::SCHEME_BANDS;
 
         $mform->addElement('header', 'bandedgradehdr', get_string('formheader', 'local_bandedgrade'));
 
@@ -97,11 +99,20 @@ class form_section {
         $mform->addHelpButton('bandedgrade_enabled', 'enabled', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_enabled', $config ? (int)$config->enabled : 0);
 
+        $mform->addElement('select', 'bandedgrade_scheme', get_string('scheme', 'local_bandedgrade'), [
+            bands::SCHEME_BANDS => get_string('scheme_bands', 'local_bandedgrade'),
+            bands::SCHEME_PASSFAIL => get_string('scheme_passfail', 'local_bandedgrade'),
+        ]);
+        $mform->addHelpButton('bandedgrade_scheme', 'scheme', 'local_bandedgrade');
+        $mform->setDefault('bandedgrade_scheme', $scheme);
+        $mform->hideIf('bandedgrade_scheme', 'bandedgrade_enabled');
+
         $options = ['' => get_string('preset_custom', 'local_bandedgrade')] + bands::preset_names();
         $mform->addElement('select', 'bandedgrade_preset', get_string('preset', 'local_bandedgrade'), $options);
         $mform->addHelpButton('bandedgrade_preset', 'preset', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_preset', $preset);
         $mform->hideIf('bandedgrade_preset', 'bandedgrade_enabled');
+        $mform->hideIf('bandedgrade_preset', 'bandedgrade_scheme', 'eq', bands::SCHEME_PASSFAIL);
 
         $mform->addElement('select', 'bandedgrade_ruletype', get_string('ruletype', 'local_bandedgrade'), [
             bands::TYPE_COUNT => get_string('ruletype_count', 'local_bandedgrade'),
@@ -110,7 +121,45 @@ class form_section {
         $mform->addHelpButton('bandedgrade_ruletype', 'ruletype', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_ruletype', $ruletype);
         $mform->hideIf('bandedgrade_ruletype', 'bandedgrade_enabled');
+        $mform->hideIf('bandedgrade_ruletype', 'bandedgrade_scheme', 'eq', bands::SCHEME_PASSFAIL);
         $mform->disabledIf('bandedgrade_ruletype', 'bandedgrade_preset', 'neq', '');
+
+        // The pass/fail scheme: one pass mark and two scores. They are stored as two bands.
+        $mform->addElement('select', 'bandedgrade_pf_ruletype', get_string('passfailbasedon', 'local_bandedgrade'), [
+            bands::TYPE_COUNT => get_string('ruletype_count', 'local_bandedgrade'),
+            bands::TYPE_PERCENT => get_string('ruletype_percent', 'local_bandedgrade'),
+        ]);
+        $mform->setDefault('bandedgrade_pf_ruletype', $passfail ? $config->ruletype : bands::TYPE_COUNT);
+        $mform->addElement(
+            'text',
+            'bandedgrade_pf_mark',
+            get_string('passmark', 'local_bandedgrade'),
+            ['size' => 5, 'inputmode' => 'decimal']
+        );
+        $mform->addHelpButton('bandedgrade_pf_mark', 'passmark', 'local_bandedgrade');
+        $mform->setType('bandedgrade_pf_mark', PARAM_RAW_TRIMMED);
+        $mform->addElement(
+            'text',
+            'bandedgrade_pf_pass',
+            get_string('passscore', 'local_bandedgrade'),
+            ['size' => 5, 'inputmode' => 'decimal']
+        );
+        $mform->setType('bandedgrade_pf_pass', PARAM_RAW_TRIMMED);
+        $mform->addElement(
+            'text',
+            'bandedgrade_pf_fail',
+            get_string('failscore', 'local_bandedgrade'),
+            ['size' => 5, 'inputmode' => 'decimal']
+        );
+        $mform->setType('bandedgrade_pf_fail', PARAM_RAW_TRIMMED);
+        // Without a saved pass mark, start from the pass/fail preset (6 of 10 correct) with scores 1 and 0.
+        $mform->setDefault('bandedgrade_pf_mark', $passfail ? $passfail[0] : 6);
+        $mform->setDefault('bandedgrade_pf_pass', format_float($passfail ? $passfail[1] : 1, -1));
+        $mform->setDefault('bandedgrade_pf_fail', format_float($passfail ? $passfail[2] : 0, -1));
+        foreach (['ruletype', 'mark', 'pass', 'fail'] as $name) {
+            $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_enabled');
+            $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_scheme', 'neq', bands::SCHEME_PASSFAIL);
+        }
 
         $totaltext = $quizid ? get_string('questiontotal', 'local_bandedgrade', $total)
             : get_string('questiontotalnew', 'local_bandedgrade');
@@ -149,6 +198,7 @@ class form_section {
                 $mform->setDefault("bandedgrade_score[$i]", format_float($current[$i]['score'], -1));
             }
             $mform->hideIf("bandedgrade_row$i", 'bandedgrade_enabled');
+            $mform->hideIf("bandedgrade_row$i", 'bandedgrade_scheme', 'eq', bands::SCHEME_PASSFAIL);
             $mform->disabledIf("bandedgrade_row$i", 'bandedgrade_preset', 'neq', '');
         }
 
@@ -161,6 +211,7 @@ class form_section {
             'presets' => $presetdata,
             'total' => $total,
             'rows' => bands::MAX_ROWS,
+            'passfail' => bands::SCHEME_PASSFAIL,
             'strings' => self::preview_strings() + [
                 'arrow' => get_string('arrow', 'local_bandedgrade'),
                 'arrowpercent' => get_string('arrowpercent', 'local_bandedgrade'),
@@ -219,10 +270,14 @@ class form_section {
         if (!self::is_quiz_form($formwrapper) || empty($data['bandedgrade_enabled'])) {
             return [];
         }
-        [, $errors] = self::bands_from_data($data);
+        [, $errors, , $scheme] = self::bands_from_data($data);
         $result = [];
         foreach ($errors as $key => $message) {
-            $result[$key === 'all' ? 'bandedgrade_row0' : "bandedgrade_row$key"] = $message;
+            if ($scheme === bands::SCHEME_PASSFAIL) {
+                $result["bandedgrade_pf_$key"] = $message; // The keys are mark, pass and fail.
+            } else {
+                $result[$key === 'all' ? 'bandedgrade_row0' : "bandedgrade_row$key"] = $message;
+            }
         }
         return $result;
     }
@@ -247,19 +302,20 @@ class form_section {
         $enabled = !empty($moduleinfo->bandedgrade_enabled);
         $zeroweight = !empty($moduleinfo->bandedgrade_zeroweight);
 
-        [$bands, $errors, $ruletype] = self::bands_from_data((array)$moduleinfo);
+        [$bands, $errors, $ruletype, $scheme] = self::bands_from_data((array)$moduleinfo);
         if ($errors) {
             if ($enabled || !$old) {
                 return $moduleinfo; // Cannot happen after validation; keep what was there.
             }
             $bands = $old->bands; // Turned off with untidy rows: keep the old bands.
             $ruletype = $old->ruletype;
+            $scheme = $old->scheme;
         }
         if (!$enabled && !$old) {
             return $moduleinfo;
         }
 
-        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype);
+        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype, $scheme);
         if (!$enabled) {
             if ($old && $old->enabled && $old->zeroweight) {
                 gradebook::set_quiz_weight($quiz, false);
@@ -268,6 +324,9 @@ class form_section {
         }
 
         gradebook::ensure_item($config, $quiz);
+        if ($old && $old->scheme === bands::SCHEME_PASSFAIL && $config->scheme !== bands::SCHEME_PASSFAIL) {
+            gradebook::clear_pass_grade($config); // Back to bands: the grade to pass was ours, take it back.
+        }
         $weight = gradebook::set_quiz_weight($quiz, $zeroweight);
         if (!$zeroweight && $old && $old->zeroweight) {
             gradebook::set_quiz_weight($quiz, false);
@@ -282,16 +341,28 @@ class form_section {
     }
 
     /**
-     * Get the bands from submitted data: a preset, or the rows.
+     * Get the bands from submitted data: a pass mark, a preset, or the rows.
      *
      * @param array $data Submitted data.
-     * @return array [bands, errors, ruletype]: bands and errors as from bands::from_rows(), then the rule type.
+     * @return array [bands, errors, ruletype, scheme]: bands and errors as from bands::from_rows() (for the pass/fail
+     *     scheme the errors are keyed mark, pass and fail), then the rule type and the scheme.
      */
     private static function bands_from_data(array $data): array {
+        if (($data['bandedgrade_scheme'] ?? '') === bands::SCHEME_PASSFAIL) {
+            $ruletype = (string)($data['bandedgrade_pf_ruletype'] ?? '');
+            $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
+            [$bands, $errors] = bands::from_passfail(
+                (string)($data['bandedgrade_pf_mark'] ?? ''),
+                (string)($data['bandedgrade_pf_pass'] ?? ''),
+                (string)($data['bandedgrade_pf_fail'] ?? ''),
+                $ruletype
+            );
+            return [$bands, $errors, $ruletype, bands::SCHEME_PASSFAIL];
+        }
         $presets = bands::presets();
         $preset = $data['bandedgrade_preset'] ?? '';
         if ($preset !== '' && isset($presets[$preset])) {
-            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset)];
+            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset), bands::SCHEME_BANDS];
         }
         $ruletype = (string)($data['bandedgrade_ruletype'] ?? '');
         $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
@@ -300,7 +371,7 @@ class form_section {
             (array)($data['bandedgrade_score'] ?? []),
             $ruletype
         );
-        return [$bands, $errors, $ruletype];
+        return [$bands, $errors, $ruletype, bands::SCHEME_BANDS];
     }
 
     /**

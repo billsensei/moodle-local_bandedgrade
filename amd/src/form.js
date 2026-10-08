@@ -72,6 +72,29 @@ const readBands = (form, rows, percent) => {
 };
 
 /**
+ * Read the pass mark and the two scores as two bands (fail from 0, pass from the pass mark), if they are valid.
+ *
+ * The same rules as bands::from_passfail() in PHP.
+ *
+ * @param {HTMLFormElement} form The form.
+ * @param {boolean} percent True when the pass mark is a percentage.
+ * @returns {Array} Bands {from, score}, or none while a box is not valid.
+ */
+const readPassFail = (form, percent) => {
+    const value = (name) => {
+        const box = form.querySelector(`[name="bandedgrade_pf_${name}"]`);
+        return box ? box.value.trim().replace(',', '.') : '';
+    };
+    const mark = value('mark');
+    const markOk = percent ? /^\d+(\.\d{1,2})?$/.test(mark) && Number(mark) <= 100 : /^\d+$/.test(mark);
+    const scoreOk = /^\d+(\.\d{1,5})?$/;
+    if (!markOk || Number(mark) <= 0 || !scoreOk.test(value('pass')) || !scoreOk.test(value('fail'))) {
+        return [];
+    }
+    return [{from: 0, score: Number(value('fail'))}, {from: Number(mark), score: Number(value('pass'))}];
+};
+
+/**
  * The fewest correct questions that reach a percentage (as bands::min_correct() in PHP).
  *
  * @param {number} percent The lower bound.
@@ -149,13 +172,20 @@ export const init = () => {
     const config = JSON.parse(preview.dataset.config);
     const form = preset.form;
     const ruletype = form.querySelector('select[name="bandedgrade_ruletype"]');
-    const isPercent = () => ruletype !== null && ruletype.value === 'percent';
+    const scheme = form.querySelector('select[name="bandedgrade_scheme"]');
+    const pfRuletype = form.querySelector('select[name="bandedgrade_pf_ruletype"]');
+    const isPassFail = () => scheme !== null && scheme.value === config.passfail;
+    const isPercent = () => {
+        const select = isPassFail() ? pfRuletype : ruletype;
+        return select !== null && select.value === 'percent';
+    };
     const update = () => {
         const percent = isPercent();
         form.querySelectorAll('.local-bandedgrade-arrow').forEach((arrow) => {
             arrow.textContent = percent ? config.strings.arrowpercent : config.strings.arrow;
         });
-        renderPreview(preview, readBands(form, config.rows, percent), config.total, config.strings, percent);
+        const bands = isPassFail() ? readPassFail(form, percent) : readBands(form, config.rows, percent);
+        renderPreview(preview, bands, config.total, config.strings, percent);
     };
 
     preset.addEventListener('change', () => {
@@ -177,8 +207,10 @@ export const init = () => {
             update();
         }
     });
-    if (ruletype) {
-        ruletype.addEventListener('change', update);
-    }
+    [ruletype, pfRuletype, scheme].forEach((select) => {
+        if (select) {
+            select.addEventListener('change', update);
+        }
+    });
     update();
 };

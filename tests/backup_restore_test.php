@@ -18,6 +18,7 @@ namespace local_bandedgrade;
 
 use backup;
 use backup_controller;
+use local_bandedgrade\local\bands;
 use local_bandedgrade\local\gradebook;
 use local_bandedgrade\local\quiz_config;
 use restore_controller;
@@ -209,6 +210,19 @@ final class backup_restore_test extends \advanced_testcase {
             'itemid = ? AND finalgrade IS NOT NULL',
             [$config->gradeitemid]
         ), 'No scores without student data.');
+    }
+
+    public function test_course_copy_keeps_the_pass_fail_scheme(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable_passfail($quiz, '3', '5', '1');
+
+        $newcourseid = $this->copy_course(false);
+
+        $copy = $this->only_quiz($newcourseid);
+        $config = quiz_config::get($copy->id);
+        $this->assertSame('passfail', $config->scheme);
+        $this->assertSame([3, 5.0, 1.0], bands::to_passfail($config->bands));
+        $this->assertEquals(5, gradebook::get_item($config)->gradepass, 'The grade to pass comes with the column.');
     }
 
     public function test_duplicate_quiz_gets_its_own_column(): void {

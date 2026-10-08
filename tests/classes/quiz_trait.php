@@ -142,6 +142,36 @@ trait quiz_trait {
     }
 
     /**
+     * Turn pass/fail grading on through the same code the settings form uses.
+     *
+     * @param \stdClass $quiz The quiz.
+     * @param string $mark The pass mark: a number of questions, or a percentage.
+     * @param string $pass Score for a pass.
+     * @param string $fail Score for a fail.
+     * @param string $ruletype 'bands' (the mark is a number correct) or 'percent'.
+     */
+    protected function enable_passfail(
+        \stdClass $quiz,
+        string $mark,
+        string $pass = '1',
+        string $fail = '0',
+        string $ruletype = 'bands'
+    ): void {
+        $moduleinfo = (object)[
+            'modulename' => 'quiz',
+            'instance' => $quiz->id,
+            'bandedgrade_enabled' => 1,
+            'bandedgrade_scheme' => 'passfail',
+            'bandedgrade_pf_ruletype' => $ruletype,
+            'bandedgrade_pf_mark' => $mark,
+            'bandedgrade_pf_pass' => $pass,
+            'bandedgrade_pf_fail' => $fail,
+            'bandedgrade_zeroweight' => 1,
+        ];
+        form_section::save($moduleinfo, $this->course);
+    }
+
+    /**
      * Start an attempt and submit answers, as the student.
      *
      * @param \stdClass $quiz The quiz.

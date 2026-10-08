@@ -15,19 +15,32 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for local_bandedgrade.
+ * Upgrade steps for local_bandedgrade.
  *
  * @package    local_bandedgrade
  * @copyright  2026 Site administrators
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+/**
+ * Upgrade local_bandedgrade.
+ *
+ * @param int $oldversion The version being upgraded from.
+ * @return bool True.
+ */
+function xmldb_local_bandedgrade_upgrade($oldversion) {
+    global $DB;
+    $dbman = $DB->get_manager();
 
-$plugin->component = 'local_bandedgrade';
-$plugin->version = 2026100901;
-$plugin->requires = 2025041400; // Moodle 5.0.
-$plugin->supported = [500, 502]; // Tested on Moodle 5.0, 5.1 and 5.2 (range: first and last supported branch).
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.5.0';
-$plugin->dependencies = ['mod_quiz' => 2025041400];
+    if ($oldversion < 2026100901) {
+        // 0.5.0: the "scheme" of a quiz's rule (bands, or one pass mark). Existing quizzes keep their bands.
+        $table = new xmldb_table('local_bandedgrade_quiz');
+        $field = new xmldb_field('scheme', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, 'bands', 'ruletype');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2026100901, 'local', 'bandedgrade');
+    }
+
+    return true;
+}

@@ -42,6 +42,12 @@ class bands {
     /** @var string Rule type: bands on the percentage of correct questions. */
     const TYPE_PERCENT = 'percent';
 
+    /** @var string Scheme: the teacher fills in a list of bands. */
+    const SCHEME_BANDS = 'bands';
+
+    /** @var string Scheme: the teacher gives one pass mark (stored as two bands: fail below it, pass from it). */
+    const SCHEME_PASSFAIL = 'passfail';
+
     /** @var string[] Built-in presets that use percentages. */
     const PERCENT_PRESETS = ['zerotothreepct', 'passfailpct'];
 
@@ -89,6 +95,80 @@ class bands {
      */
     public static function is_ruletype(string $ruletype): bool {
         return in_array($ruletype, [self::TYPE_COUNT, self::TYPE_PERCENT], true);
+    }
+
+    /**
+     * Whether a scheme is one the plugin knows.
+     *
+     * @param string $scheme The scheme.
+     * @return bool True for SCHEME_BANDS and SCHEME_PASSFAIL.
+     */
+    public static function is_scheme(string $scheme): bool {
+        return in_array($scheme, [self::SCHEME_BANDS, self::SCHEME_PASSFAIL], true);
+    }
+
+    /**
+     * Turn a pass mark into two bands, or report what is wrong in plain language.
+     *
+     * Fail gives the "fail" score from 0 up to the pass mark, pass gives the "pass" score from the pass mark.
+     *
+     * @param string $mark The pass mark: a whole number of questions, or a percentage (as in from_rows()).
+     * @param string $pass The score for a pass.
+     * @param string $fail The score for a fail.
+     * @param string $ruletype TYPE_COUNT or TYPE_PERCENT.
+     * @return array [bands, errors]: errors keyed 'mark', 'pass' or 'fail'.
+     */
+    public static function from_passfail(string $mark, string $pass, string $fail, string $ruletype = self::TYPE_COUNT): array {
+        $percent = $ruletype === self::TYPE_PERCENT;
+        $errors = [];
+
+        $mark = str_replace(',', '.', trim($mark));
+        if ($percent) {
+            if (!preg_match('/^\d+(\.\d{1,2})?$/', $mark) || (float)$mark > 100) {
+                $errors['mark'] = get_string('error_percent', 'local_bandedgrade');
+            }
+        } else if (!preg_match('/^\d+$/', $mark)) {
+            $errors['mark'] = get_string('error_from', 'local_bandedgrade');
+        } else if ((int)$mark > self::MAX_FROM) {
+            $errors['mark'] = get_string('error_frommax', 'local_bandedgrade', self::MAX_FROM);
+        }
+        if (!isset($errors['mark']) && (float)$mark <= 0) {
+            // A pass mark of 0 would pass everybody, and the fail band would be empty.
+            $errors['mark'] = get_string($percent ? 'error_passmarkpct' : 'error_passmark', 'local_bandedgrade');
+        }
+
+        $scores = [];
+        foreach (['pass' => $pass, 'fail' => $fail] as $key => $text) {
+            $text = str_replace(',', '.', trim($text));
+            if (!preg_match('/^\d+(\.\d{1,5})?$/', $text)) {
+                $errors[$key] = get_string('error_score', 'local_bandedgrade');
+            } else if ((float)$text > self::MAX_SCORE) {
+                $errors[$key] = get_string('error_scoremax', 'local_bandedgrade', self::MAX_SCORE);
+            }
+            $scores[$key] = (float)$text;
+        }
+        if (!$errors && max($scores) <= 0) {
+            $errors['pass'] = get_string('error_topzero', 'local_bandedgrade');
+        }
+        if ($errors) {
+            return [[], $errors];
+        }
+        $bands = [['from' => 0, 'score' => $scores['fail']], ['from' => (float)$mark, 'score' => $scores['pass']]];
+        return [self::normalise($bands), []];
+    }
+
+    /**
+     * The pass mark, pass score and fail score of bands stored by the pass/fail scheme.
+     *
+     * @param array $bands Bands.
+     * @return array|null [mark, pass, fail], or null when the bands are not a pass mark with two bands.
+     */
+    public static function to_passfail(array $bands): ?array {
+        $bands = self::normalise($bands);
+        if (count($bands) !== 2 || $bands[0]['from'] != 0) {
+            return null;
+        }
+        return [$bands[1]['from'], $bands[1]['score'], $bands[0]['score']];
     }
 
     /**

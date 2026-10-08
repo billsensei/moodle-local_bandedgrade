@@ -90,13 +90,19 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
         $bands = bands::decode($this->config->bands);
         $ruletype = bands::is_ruletype((string)($this->config->ruletype ?? '')) ? $this->config->ruletype : bands::TYPE_COUNT;
         $valid = bands::are_valid($bands, $ruletype);
+        // Backups from before 0.5.0 have no scheme. A pass/fail scheme must still be one pass mark with two bands.
+        $scheme = (string)($this->config->scheme ?? '');
+        if ($scheme !== bands::SCHEME_PASSFAIL || !bands::to_passfail($bands)) {
+            $scheme = bands::SCHEME_BANDS;
+        }
         $config = quiz_config::save(
             $quizid,
             (int)$quiz->course,
             $valid && (bool)$this->config->enabled,
             $valid ? $bands : [],
             (bool)$this->config->zeroweight,
-            $ruletype
+            $ruletype,
+            $scheme
         );
 
         // The score column comes back only in a full course restore. In a same-course restore (duplicate, import
