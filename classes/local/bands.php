@@ -137,7 +137,7 @@ class bands {
      */
     private static function scale_error(array $items): string {
         return get_string('error_scalescore', 'local_bandedgrade', (object)[
-            'words' => implode(', ', $items),
+            'words' => s(implode(', ', $items)), // Form errors are shown as HTML.
             'max' => count($items),
         ]);
     }

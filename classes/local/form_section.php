@@ -399,7 +399,7 @@ class form_section {
             }
             $name = $structure->get_question_in_slot($slot->slot)->name ?? '';
             $options[(int)$slot->id] = get_string('requiredoption', 'local_bandedgrade', (object)[
-                'number' => $structure->get_displayed_number_for_slot($slot->slot),
+                'number' => s($structure->get_displayed_number_for_slot($slot->slot)),
                 'name' => shorten_text(format_string($name), 80),
             ]);
         }
@@ -473,7 +473,8 @@ class form_section {
             $items = gradebook::scale_items((int)$scale->id, $courseid);
             if ($items) {
                 $options[(int)$scale->id] = [
-                    'label' => shorten_text($scale->get_name() . ' (' . implode(', ', $items) . ')', 100),
+                    // Option text is output as HTML: the name is already safe (format_string), the words are not.
+                    'label' => shorten_text($scale->get_name() . ' (' . s(implode(', ', $items)) . ')', 100),
                     'items' => $items,
                 ];
             }
@@ -538,12 +539,13 @@ class form_section {
         foreach ($bands as $i => $band) {
             if ($ruletype === bands::TYPE_PERCENT) {
                 $a = (object)['from' => format_float($band['from'], 2, true, true),
-                    'score' => self::score_text($band['score'], $scaleitems),
+                    'score' => s(self::score_text($band['score'], $scaleitems)),
                     'total' => $total, 'min' => $total > 0 ? bands::min_correct($band['from'], $total) : null];
                 $items[] = get_string($total > 0 ? 'previewpercentmin' : 'previewpercent', 'local_bandedgrade', $a);
                 continue;
             }
-            $a = (object)['from' => $band['from'], 'score' => self::score_text($band['score'], $scaleitems), 'total' => $total];
+            $a = (object)['from' => $band['from'], 'score' => s(self::score_text($band['score'], $scaleitems)),
+                'total' => $total];
             $next = $bands[$i + 1]['from'] ?? null;
             if ($total > 0 && $band['from'] > $total) {
                 $items[] = get_string('previewunreachable', 'local_bandedgrade', $a);

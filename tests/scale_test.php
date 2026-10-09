@@ -203,4 +203,33 @@ final class scale_test extends \advanced_testcase {
         $this->assertNull(gradebook::scale_items(null, (int)$this->course->id));
         $this->assertNull(gradebook::scale_items(999999, (int)$this->course->id));
     }
+
+    public function test_words_of_a_scale_are_escaped_in_html(): void {
+        $this->setup_course();
+        $evil = '</option><script>alert(1)</script>';
+        $scale = $this->getDataGenerator()->create_scale(['name' => 'Evil <b>', 'scale' => "Fail, $evil, Merit",
+            'courseid' => $this->course->id]);
+        $options = form_section::scale_options((int)$this->course->id);
+        $items = $options[(int)$scale->id]['items'];
+        $this->assertStringNotContainsString('<script>', $options[(int)$scale->id]['label']);
+
+        $html = form_section::preview_html([['from' => 0, 'score' => 1], ['from' => 2, 'score' => 2]], 4, 'bands', $items);
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+
+        [, $errors] = bands::from_rows(['0'], ['Nonsense'], bands::TYPE_COUNT, $items);
+        $this->assertStringNotContainsString('<script>', $errors[0]);
+        $this->assertStringNotContainsString('<script>', gradebook::format_score($this->item_for_scale($scale), 2.0));
+    }
+
+    /**
+     * A scale grade item (not saved) for formatting tests.
+     *
+     * @param \stdClass $scale The scale.
+     * @return \grade_item The item.
+     */
+    private function item_for_scale(\stdClass $scale): \grade_item {
+        return new \grade_item(['courseid' => $this->course->id, 'itemtype' => 'manual', 'itemname' => 'x',
+            'gradetype' => GRADE_TYPE_SCALE, 'scaleid' => $scale->id], false);
+    }
 }
