@@ -120,13 +120,15 @@ trait quiz_trait {
      * @param bool $zeroweight Count only the score in the course total.
      * @param bool $enabled On or off.
      * @param string $ruletype 'bands' (from = number correct) or 'percent' (from = percentage correct).
+     * @param int[]|null $required Slot numbers of the questions that must be correct (null = leave as it is).
      */
     protected function enable(
         \stdClass $quiz,
         array $bands,
         bool $zeroweight = true,
         bool $enabled = true,
-        string $ruletype = 'bands'
+        string $ruletype = 'bands',
+        ?array $required = null
     ): void {
         $moduleinfo = (object)[
             'modulename' => 'quiz',
@@ -138,7 +140,22 @@ trait quiz_trait {
             'bandedgrade_score' => array_map('strval', array_values($bands)),
             'bandedgrade_zeroweight' => (int)$zeroweight,
         ];
+        if ($required !== null) {
+            $moduleinfo->bandedgrade_required = array_map(fn($slot) => $this->slot_id($quiz, $slot), $required);
+        }
         form_section::save($moduleinfo, $this->course);
+    }
+
+    /**
+     * The id of a quiz slot (what the plugin stores for a required question).
+     *
+     * @param \stdClass $quiz The quiz.
+     * @param int $slot The slot number.
+     * @return int The quiz_slots id.
+     */
+    protected function slot_id(\stdClass $quiz, int $slot): int {
+        global $DB;
+        return (int)$DB->get_field('quiz_slots', 'id', ['quizid' => $quiz->id, 'slot' => $slot], MUST_EXIST);
     }
 
     /**
@@ -149,13 +166,15 @@ trait quiz_trait {
      * @param string $pass Score for a pass.
      * @param string $fail Score for a fail.
      * @param string $ruletype 'bands' (the mark is a number correct) or 'percent'.
+     * @param int[]|null $required Slot numbers of the questions that must be correct (null = leave as it is).
      */
     protected function enable_passfail(
         \stdClass $quiz,
         string $mark,
         string $pass = '1',
         string $fail = '0',
-        string $ruletype = 'bands'
+        string $ruletype = 'bands',
+        ?array $required = null
     ): void {
         $moduleinfo = (object)[
             'modulename' => 'quiz',
@@ -168,6 +187,9 @@ trait quiz_trait {
             'bandedgrade_pf_fail' => $fail,
             'bandedgrade_zeroweight' => 1,
         ];
+        if ($required !== null) {
+            $moduleinfo->bandedgrade_required = array_map(fn($slot) => $this->slot_id($quiz, $slot), $required);
+        }
         form_section::save($moduleinfo, $this->course);
     }
 

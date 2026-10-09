@@ -38,6 +38,13 @@ A *band* says: "from this many correct answers, give this score". A band lasts u
   fail. The pass score is also set as the **grade to pass** of the gradebook column, so the gradebook shows pass and
   fail and the activity can require a passing grade. Going back to *A list of bands* takes that grade to pass back.
 
+- **Questions that must be correct:** under the bands, choose the questions every student has to get fully right.
+  A student who misses any of them gets the **lowest score** (the first band, or the fail score), however many other
+  questions are right. The **Number correct** page still shows the real number, marked "missed a required question".
+  With several attempts, each attempt is checked first and then the quiz's grading method picks the score, so a later
+  attempt that gets every required question right can make up for an earlier one. Leave the box empty to require none.
+  Only questions with a mark above 0 can be chosen. A question that is deleted from the quiz stops being required.
+
 Under the bands, **What students will get** shows the result as you type, for example:
 
 > 0 correct → score 0
@@ -139,7 +146,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.5.1.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.6.0.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -185,7 +192,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.5.1 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.6.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility
@@ -194,6 +201,9 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.6.0** (2026-10-09): choose **questions that must be correct**: a student who misses one gets the lowest score.
+  Works with bands, percentages and pass/fail. Needs a database upgrade (one new setting per quiz and one per counted
+  attempt); quizzes that already use the plugin are not changed.
 - **0.5.1** (2026-10-09): the plugin is now marked stable. No change to how it works.
 - **0.5.0** (2026-10-09): new **Pass or fail (one pass mark)** way to give scores: type the pass mark and the two
   scores. It sets the gradebook column's grade to pass. Needs a database upgrade (one new setting per quiz); quizzes

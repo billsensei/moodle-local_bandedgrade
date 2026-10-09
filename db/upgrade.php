@@ -42,5 +42,20 @@ function xmldb_local_bandedgrade_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026100901, 'local', 'bandedgrade');
     }
 
+    if ($oldversion < 2026100910) {
+        // 0.6.0: questions that must be correct (a list per quiz, and a flag per counted attempt).
+        $table = new xmldb_table('local_bandedgrade_quiz');
+        $field = new xmldb_field('requiredslots', XMLDB_TYPE_TEXT, null, null, null, null, null, 'bands');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $table = new xmldb_table('local_bandedgrade_attempt');
+        $field = new xmldb_field('missedrequired', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'correctcount');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2026100910, 'local', 'bandedgrade');
+    }
+
     return true;
 }

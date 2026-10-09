@@ -116,14 +116,16 @@ class scorer {
      * if the chosen attempt waits; highest/average leave waiting attempts out.
      *
      * @param int $grademethod One of QUIZ_GRADEHIGHEST, QUIZ_GRADEAVERAGE, QUIZ_ATTEMPTFIRST, QUIZ_ATTEMPTLAST.
-     * @param \stdClass[] $counts Finished attempts in attempt order; each has correct and pending.
+     * @param \stdClass[] $counts Finished attempts in attempt order; each has correct, pending and (optional) missed.
+     *        An attempt that missed a required question counts as 0 correct, which gives the lowest band.
      * @return float|null The count, or null when there is none.
      */
     public static function choose_count(int $grademethod, array $counts): ?float {
         global $CFG;
         require_once($CFG->dirroot . '/mod/quiz/lib.php');
 
-        $counts = array_values($counts);
+        $counts = array_map(fn($count) => empty($count->missed) ? $count
+            : (object)['correct' => 0, 'pending' => $count->pending, 'missed' => true], array_values($counts));
         if (!$counts) {
             return null;
         }
@@ -199,7 +201,7 @@ class scorer {
             'attempt ASC',
             'id, uniqueid, attempt, userid'
         );
-        $counts = counter::count_attempts($attempts);
+        $counts = counter::count_attempts($attempts, null, counter::required_slot_numbers($quizid, $config->requiredslots));
         self::store_counts($quizid, $attempts, $counts, $userid);
 
         $item = gradebook::ensure_item($config, $quiz);
@@ -253,7 +255,7 @@ class scorer {
             'userid ASC, attempt ASC',
             'id, uniqueid, attempt, userid'
         );
-        $counts = counter::count_attempts($attempts, $quizid);
+        $counts = counter::count_attempts($attempts, $quizid, counter::required_slot_numbers($quizid, $config->requiredslots));
         self::store_counts($quizid, $attempts, $counts);
 
         $byuser = [];
@@ -347,6 +349,7 @@ class scorer {
                 'quizid' => $quizid,
                 'userid' => $attempt->userid,
                 'correctcount' => $counts[$attempt->id]->correct,
+                'missedrequired' => (int)$counts[$attempt->id]->missed,
                 'pending' => (int)$counts[$attempt->id]->pending,
                 'timemodified' => $now,
             ];

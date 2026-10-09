@@ -100,6 +100,7 @@ $string['previewunreachable'] = 'The band starting at {$a->from} can never be re
 $string['privacy:metadata:attempt'] = 'The number of fully correct questions in each quiz attempt.';
 $string['privacy:metadata:attempt:attemptid'] = 'The quiz attempt.';
 $string['privacy:metadata:attempt:correctcount'] = 'How many questions were fully correct.';
+$string['privacy:metadata:attempt:missedrequired'] = 'Whether a question that had to be correct was not fully correct.';
 $string['privacy:metadata:attempt:pending'] = 'Whether some questions were still waiting to be marked.';
 $string['privacy:metadata:attempt:timemodified'] = 'When the count was made.';
 $string['privacy:metadata:attempt:userid'] = 'The student.';
@@ -125,10 +126,19 @@ $string['reportempty'] = 'No student has finished this quiz yet.';
 $string['reportheading'] = 'Number correct in "{$a}"';
 $string['reportintro'] = 'This quiz has {$a->total} questions that can be marked right or wrong. Grading method: {$a->method}. The score comes from the number correct in the third column.';
 $string['reportlink'] = 'See the number correct for each student';
+$string['reportmissed'] = 'missed a required question';
 $string['reportscore'] = 'Score in the gradebook';
 $string['reportstudent'] = 'Student';
 $string['reportused'] = 'Number correct used for the score';
 $string['reportwaiting'] = 'waiting for marking';
+$string['required'] = 'Questions that must be correct';
+$string['required_help'] = 'Choose questions that every student must get fully right. A student who misses one of them gets the lowest score (the first band, or the fail score), however many other questions are right.
+
+With several attempts, each attempt is checked first, and then the quiz\'s grading method (highest, average, first or last) picks the score. A later attempt that gets all the required questions right can therefore make up for an earlier one.
+
+Leave this empty if no question is required.';
+$string['requirednone'] = 'No question is required';
+$string['requiredoption'] = '{$a->number}. {$a->name}';
 $string['ruletype'] = 'Bands are based on';
 $string['ruletype_count'] = 'The number of questions answered correctly';
 $string['ruletype_help'] = 'Choose what the bands measure.

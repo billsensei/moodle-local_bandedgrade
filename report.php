@@ -87,9 +87,11 @@ $table->head = [
     get_string('reportscore', 'local_bandedgrade'),
 ];
 $waiting = get_string('reportwaiting', 'local_bandedgrade');
+$missedrequired = get_string('reportmissed', 'local_bandedgrade');
 $percent = $config->ruletype === 'percent' && $total > 0;
 foreach ($rows as $row) {
-    $attempts = array_map(fn($attempt) => $attempt->pending ? $waiting : $attempt->correct, $row->attempts);
+    $attempts = array_map(fn($attempt) => $attempt->pending ? $waiting : $attempt->correct .
+        ($attempt->missed ? ' (' . $missedrequired . ')' : ''), $row->attempts);
     $score = $row->score === null ? '-' : format_float($row->score, -1);
     if ($row->byhand) {
         $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge bg-info text-dark');

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/bandedgrade/db" VERSION="20261009" COMMENT="XMLDB file for Moodle local/bandedgrade"
+<XMLDB PATH="local/bandedgrade/db" VERSION="20261010" COMMENT="XMLDB file for Moodle local/bandedgrade"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -13,6 +13,7 @@
         <FIELD NAME="ruletype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="bands" SEQUENCE="false" COMMENT="Kind of rule: bands (number correct) or percent (percentage correct)"/>
         <FIELD NAME="scheme" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="bands" SEQUENCE="false" COMMENT="How the teacher sets the rule up: bands (a list of bands) or passfail (one pass mark, stored as two bands)"/>
         <FIELD NAME="bands" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of {from, score}, sorted by from"/>
+        <FIELD NAME="requiredslots" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of quiz_slots ids whose questions must be correct; missing one gives the lowest score"/>
         <FIELD NAME="zeroweight" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 = set the quiz's own grade weight to 0"/>
         <FIELD NAME="gradeitemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Our manual grade item"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -31,6 +32,7 @@
         <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="correctcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="missedrequired" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 = a required question was not fully correct"/>
         <FIELD NAME="pending" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 = some questions still wait for marking"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>

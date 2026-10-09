@@ -225,6 +225,21 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertEquals(5, gradebook::get_item($config)->gradepass, 'The grade to pass comes with the column.');
     }
 
+    public function test_course_copy_maps_the_required_questions(): void {
+        global $DB;
+        $quiz = $this->make_frog_quiz(3);
+        $this->enable($quiz, [0 => 0, 2 => 1], true, true, 'bands', [2]);
+        $oldids = quiz_config::get($quiz->id)->requiredslots;
+
+        $newcourseid = $this->copy_course(false);
+
+        $copy = $this->only_quiz($newcourseid);
+        $required = quiz_config::get($copy->id)->requiredslots;
+        $this->assertCount(1, $required);
+        $this->assertNotEquals($oldids, $required, 'The copy has its own slots.');
+        $this->assertEquals(2, $DB->get_field('quiz_slots', 'slot', ['id' => $required[0], 'quizid' => $copy->id]));
+    }
+
     public function test_duplicate_quiz_gets_its_own_column(): void {
         $quiz = $this->make_frog_quiz(2);
         $this->enable($quiz, [0 => 0, 1 => 1, 2 => 2]);

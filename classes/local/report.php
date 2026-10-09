@@ -36,8 +36,8 @@ class report {
      * @param \cm_info $cm The quiz course module.
      * @param \context_module $context The quiz context.
      * @param int $groupid Only members of this group, or 0 for everyone the user may see.
-     * @return \stdClass[] Sorted by name; each has userid, name (not escaped), attempts (list of objects with correct
-     *         and pending), used (float|null, the number that sets the score), score (float|null) and byhand (bool).
+     * @return \stdClass[] Sorted by name; each has userid, name (not escaped), attempts (list of objects with correct,
+     *         pending and missed), used (float|null, the number that sets the score), score (float|null) and byhand (bool).
      */
     public static function rows(\stdClass $quiz, \cm_info $cm, \context_module $context, int $groupid): array {
         global $DB;
@@ -46,7 +46,7 @@ class report {
             return [];
         }
         $counts = $DB->get_records_sql(
-            'SELECT bga.id, bga.userid, bga.correctcount, bga.pending
+            'SELECT bga.id, bga.userid, bga.correctcount, bga.missedrequired, bga.pending
                FROM {local_bandedgrade_attempt} bga
                JOIN {quiz_attempts} qa ON qa.id = bga.attemptid
               WHERE bga.quizid = :quizid
@@ -55,7 +55,8 @@ class report {
         );
         $byuser = [];
         foreach ($counts as $count) {
-            $byuser[(int)$count->userid][] = (object)['correct' => (int)$count->correctcount, 'pending' => (bool)$count->pending];
+            $byuser[(int)$count->userid][] = (object)['correct' => (int)$count->correctcount,
+                'pending' => (bool)$count->pending, 'missed' => (bool)$count->missedrequired];
         }
         $byhand = scorer::changed_by_hand((int)$quiz->id);
         $userids = array_unique(array_merge(array_keys($byuser), $byhand));

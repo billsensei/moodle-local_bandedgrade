@@ -166,6 +166,19 @@ class form_section {
         $mform->addElement('static', 'bandedgrade_total', '', $totaltext);
         $mform->hideIf('bandedgrade_total', 'bandedgrade_enabled');
 
+        $slotoptions = $quizid ? self::slot_options($quizid) : [];
+        if ($slotoptions) {
+            $mform->addElement('autocomplete', 'bandedgrade_required', get_string('required', 'local_bandedgrade'), $slotoptions, [
+                'multiple' => true,
+                'noselectionstring' => get_string('requirednone', 'local_bandedgrade'),
+            ]);
+            $mform->addHelpButton('bandedgrade_required', 'required', 'local_bandedgrade');
+            $mform->setType('bandedgrade_required', PARAM_INT);
+            $chosen = $config ? array_values(array_intersect($config->requiredslots, array_keys($slotoptions))) : [];
+            $mform->setDefault('bandedgrade_required', $chosen);
+            $mform->hideIf('bandedgrade_required', 'bandedgrade_enabled');
+        }
+
         for ($i = 0; $i < bands::MAX_ROWS; $i++) {
             $row = [
                 $mform->createElement(
@@ -315,7 +328,17 @@ class form_section {
             return $moduleinfo;
         }
 
-        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype, $scheme);
+        // The required questions: only slots of this quiz that are counted. Not posted when the section is off
+        // (the box always posts when it is shown, empty when nothing is chosen).
+        $required = $old ? $old->requiredslots : [];
+        if (isset($moduleinfo->bandedgrade_required) && $enabled) {
+            $required = array_values(array_intersect(
+                array_map('intval', (array)$moduleinfo->bandedgrade_required),
+                array_keys(self::slot_options((int)$quiz->id))
+            ));
+        }
+
+        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype, $scheme, $required);
         if (!$enabled) {
             if ($old && $old->enabled && $old->zeroweight) {
                 gradebook::set_quiz_weight($quiz, false);
@@ -338,6 +361,30 @@ class form_section {
         // Always rescore: the bands or the quiz's grading method may have changed. Duplicate tasks are merged.
         rescore_quiz::queue($quiz->id);
         return $moduleinfo;
+    }
+
+    /**
+     * The questions a teacher can make required: the quiz's counted slots, as slot id => "number. name".
+     *
+     * @param int $quizid The quiz id.
+     * @return array<int, string> Options in quiz order (empty when the quiz has no counted question).
+     */
+    public static function slot_options(int $quizid): array {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        $structure = \mod_quiz\structure::create_for_quiz(\mod_quiz\quiz_settings::create($quizid));
+        $options = [];
+        foreach ($structure->get_slots() as $slot) {
+            if ((float)$slot->maxmark <= 0) {
+                continue;
+            }
+            $name = $structure->get_question_in_slot($slot->slot)->name ?? '';
+            $options[(int)$slot->id] = get_string('requiredoption', 'local_bandedgrade', (object)[
+                'number' => $structure->get_displayed_number_for_slot($slot->slot),
+                'name' => shorten_text(format_string($name), 80),
+            ]);
+        }
+        return $options;
     }
 
     /**

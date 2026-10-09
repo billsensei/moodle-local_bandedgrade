@@ -31,9 +31,11 @@ class counter {
      * Count the fully correct questions in each usage.
      *
      * @param \qubaid_condition $qubaids The question usages (attempts) to look at.
-     * @return \stdClass[] Keyed by usage id; each has int correct and bool pending (a question waits for marking).
+     * @param int[] $requiredslots Slot numbers of the questions that must be correct (see required_slot_numbers()).
+     * @return \stdClass[] Keyed by usage id; each has int correct, bool pending (a question waits for marking) and
+     *         bool missed (a required question is not fully correct, or is not in the attempt).
      */
-    public static function count_usages(\qubaid_condition $qubaids): array {
+    public static function count_usages(\qubaid_condition $qubaids, array $requiredslots = []): array {
         global $CFG;
         require_once($CFG->dirroot . '/question/engine/lib.php');
 
@@ -45,10 +47,11 @@ class counter {
         );
 
         $result = [];
+        $correctslots = [];
         foreach ($steps as $step) {
             $usageid = (int)$step->questionusageid;
             if (!isset($result[$usageid])) {
-                $result[$usageid] = (object)['correct' => 0, 'pending' => false];
+                $result[$usageid] = (object)['correct' => 0, 'pending' => false, 'missed' => false];
             }
             if ((float)$step->maxmark <= 0) {
                 continue;
@@ -58,7 +61,12 @@ class counter {
                 $result[$usageid]->pending = true;
             } else if ($state !== null && $state->is_correct()) {
                 $result[$usageid]->correct++;
+                $correctslots[$usageid][(int)$step->slot] = true;
             }
+        }
+        foreach ($result as $usageid => $count) {
+            // A required question that is not fully correct, or that the attempt does not have, is missed.
+            $count->missed = (bool)array_diff($requiredslots, array_keys($correctslots[$usageid] ?? []));
         }
         return $result;
     }
@@ -88,9 +96,10 @@ class counter {
      *
      * @param \stdClass[] $attempts Rows from quiz_attempts (need id and uniqueid).
      * @param int|null $quizid Set when $attempts are all finished attempts of this quiz: one join instead of a long list.
-     * @return \stdClass[] Keyed by attempt id; each has int correct and bool pending.
+     * @param int[] $requiredslots Slot numbers of the questions that must be correct.
+     * @return \stdClass[] Keyed by attempt id; each has int correct, bool pending and bool missed.
      */
-    public static function count_attempts(array $attempts, ?int $quizid = null): array {
+    public static function count_attempts(array $attempts, ?int $quizid = null, array $requiredslots = []): array {
         global $CFG;
         require_once($CFG->dirroot . '/question/engine/lib.php');
 
@@ -98,15 +107,16 @@ class counter {
             return [];
         }
         if ($quizid !== null) {
-            $byusage = self::count_usages(self::finished_attempts_of_quiz($quizid));
+            $byusage = self::count_usages(self::finished_attempts_of_quiz($quizid), $requiredslots);
         } else {
             $usageids = array_map(fn($attempt) => (int)$attempt->uniqueid, $attempts);
-            $byusage = self::count_usages(new \qubaid_list(array_values($usageids)));
+            $byusage = self::count_usages(new \qubaid_list(array_values($usageids)), $requiredslots);
         }
 
         $result = [];
         foreach ($attempts as $attempt) {
-            $result[$attempt->id] = $byusage[(int)$attempt->uniqueid] ?? (object)['correct' => 0, 'pending' => false];
+            $result[$attempt->id] = $byusage[(int)$attempt->uniqueid]
+                ?? (object)['correct' => 0, 'pending' => false, 'missed' => (bool)$requiredslots];
         }
         return $result;
     }
@@ -120,5 +130,32 @@ class counter {
     public static function question_total(int $quizid): int {
         global $DB;
         return $DB->count_records_select('quiz_slots', 'quizid = :quizid AND maxmark > 0', ['quizid' => $quizid]);
+    }
+
+    /**
+     * The slot numbers of the required questions that the quiz still has.
+     *
+     * Required questions are stored by slot id, which stays the same when questions are moved. A slot that was
+     * deleted, or whose mark is now 0 (so it is not counted), is left out.
+     *
+     * @param int $quizid The quiz id.
+     * @param int[] $slotids Ids from quiz_slots.
+     * @return int[] Slot numbers, sorted.
+     */
+    public static function required_slot_numbers(int $quizid, array $slotids): array {
+        global $DB;
+        if (!$slotids) {
+            return [];
+        }
+        [$insql, $params] = $DB->get_in_or_equal(array_map('intval', $slotids), SQL_PARAMS_NAMED);
+        $numbers = $DB->get_fieldset_select(
+            'quiz_slots',
+            'slot',
+            "quizid = :quizid AND maxmark > 0 AND id $insql",
+            ['quizid' => $quizid] + $params
+        );
+        $numbers = array_map('intval', $numbers);
+        sort($numbers);
+        return $numbers;
     }
 }

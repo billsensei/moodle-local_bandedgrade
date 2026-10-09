@@ -49,6 +49,7 @@ class provider implements
             'attemptid' => 'privacy:metadata:attempt:attemptid',
             'userid' => 'privacy:metadata:attempt:userid',
             'correctcount' => 'privacy:metadata:attempt:correctcount',
+            'missedrequired' => 'privacy:metadata:attempt:missedrequired',
             'pending' => 'privacy:metadata:attempt:pending',
             'timemodified' => 'privacy:metadata:attempt:timemodified',
         ], 'privacy:metadata:attempt');
@@ -140,7 +141,7 @@ class provider implements
             if (!$quizid) {
                 continue;
             }
-            $attempts = $DB->get_records_sql("SELECT b.attemptid, qa.attempt, b.correctcount, b.pending, b.timemodified
+            $attempts = $DB->get_records_sql("SELECT b.attemptid, qa.attempt, b.correctcount, b.missedrequired, b.pending, b.timemodified
                                                 FROM {local_bandedgrade_attempt} b
                                            LEFT JOIN {quiz_attempts} qa ON qa.id = b.attemptid
                                                WHERE b.quizid = :quizid AND b.userid = :userid
@@ -153,6 +154,7 @@ class provider implements
                 'attempts' => array_values(array_map(fn($row) => (object)[
                     'attempt' => $row->attempt,
                     'correctcount' => $row->correctcount,
+                    'missedrequired' => transform::yesno($row->missedrequired),
                     'pending' => transform::yesno($row->pending),
                     'timemodified' => transform::datetime($row->timemodified),
                 ], $attempts)),

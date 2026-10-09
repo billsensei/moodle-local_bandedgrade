@@ -40,6 +40,7 @@ class quiz_config {
             return null;
         }
         $record->bands = bands::decode($record->bands);
+        $record->requiredslots = self::decode_slots($record->requiredslots);
         return $record;
     }
 
@@ -67,6 +68,7 @@ class quiz_config {
      * @param bool $zeroweight Whether the quiz's own grade should have weight 0.
      * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT: what the bands' lower bounds measure.
      * @param string $scheme bands::SCHEME_BANDS or bands::SCHEME_PASSFAIL: how the teacher set the bands up.
+     * @param int[] $requiredslots Ids (quiz_slots) of the questions that must be correct.
      * @return \stdClass The saved settings (bands decoded).
      */
     public static function save(
@@ -76,7 +78,8 @@ class quiz_config {
         array $bands,
         bool $zeroweight,
         string $ruletype = bands::TYPE_COUNT,
-        string $scheme = bands::SCHEME_BANDS
+        string $scheme = bands::SCHEME_BANDS,
+        array $requiredslots = []
     ): \stdClass {
         global $DB;
         $record = $DB->get_record(self::TABLE, ['quizid' => $quizid]);
@@ -87,6 +90,7 @@ class quiz_config {
             'ruletype' => bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT,
             'scheme' => bands::is_scheme($scheme) ? $scheme : bands::SCHEME_BANDS,
             'bands' => bands::encode($bands),
+            'requiredslots' => $requiredslots ? self::encode_slots($requiredslots) : null,
             'zeroweight' => (int)$zeroweight,
             'timemodified' => time(),
         ];
@@ -97,6 +101,34 @@ class quiz_config {
             $DB->insert_record(self::TABLE, (object)$data);
         }
         return self::get($quizid);
+    }
+
+    /**
+     * Encode a list of slot ids for storage.
+     *
+     * @param int[] $slotids Slot ids.
+     * @return string JSON, sorted and without duplicates.
+     */
+    public static function encode_slots(array $slotids): string {
+        $slotids = array_values(array_unique(array_map('intval', $slotids)));
+        sort($slotids);
+        return json_encode($slotids);
+    }
+
+    /**
+     * Decode stored slot ids.
+     *
+     * @param string|null $json JSON from the database.
+     * @return int[] Slot ids (empty if none or broken).
+     */
+    public static function decode_slots(?string $json): array {
+        $slotids = $json ? json_decode($json, true) : null;
+        if (!is_array($slotids)) {
+            return [];
+        }
+        $slotids = array_values(array_unique(array_filter(array_map('intval', $slotids), fn($id) => $id > 0)));
+        sort($slotids);
+        return $slotids;
     }
 
     /**
