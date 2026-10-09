@@ -24,6 +24,7 @@
 
 use local_bandedgrade\event\report_viewed;
 use local_bandedgrade\local\counter;
+use local_bandedgrade\local\gradebook;
 use local_bandedgrade\local\quiz_config;
 use local_bandedgrade\local\report;
 
@@ -86,13 +87,14 @@ $table->head = [
     get_string('reportused', 'local_bandedgrade'),
     get_string('reportscore', 'local_bandedgrade'),
 ];
+$item = gradebook::get_item($config);
 $waiting = get_string('reportwaiting', 'local_bandedgrade');
 $missedrequired = get_string('reportmissed', 'local_bandedgrade');
 $percent = $config->ruletype === 'percent' && $total > 0;
 foreach ($rows as $row) {
     $attempts = array_map(fn($attempt) => $attempt->pending ? $waiting : $attempt->correct .
         ($attempt->missed ? ' (' . $missedrequired . ')' : ''), $row->attempts);
-    $score = $row->score === null ? '-' : format_float($row->score, -1);
+    $score = $row->score === null ? '-' : gradebook::format_score($item, $row->score);
     if ($row->byhand) {
         $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge bg-info text-dark');
     }

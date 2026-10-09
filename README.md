@@ -45,6 +45,13 @@ A *band* says: "from this many correct answers, give this score". A band lasts u
   attempt that gets every required question right can make up for an earlier one. Leave the box empty to require none.
   Only questions with a mark above 0 can be chosen. A question that is deleted from the quiz stops being required.
 
+- **Words instead of numbers (a scale):** if you want the gradebook to show words such as *Fail, Pass, Merit*, set
+  **Scores are** to one of your gradebook scales (you can make one in the gradebook under *Scales*). Then give each
+  band, or the pass and fail score, a word of the scale (or its number: 1 is the first word) instead of a number. The
+  gradebook column becomes a scale column and shows the words; the pass score is still the "grade to pass". The
+  ready-made bands give numbers, so with a scale choose *My own bands* and type the words. Choose **Numbers** to go
+  back. A scale can be a site scale or one of the course's own.
+
 Under the bands, **What students will get** shows the result as you type, for example:
 
 > 0 correct → score 0
@@ -146,7 +153,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.6.0.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.7.0.zip`, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
@@ -192,7 +199,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.6.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.7.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility
@@ -201,6 +208,9 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.7.0** (2026-10-09): give scores as the words of a **gradebook scale** (for example Fail / Pass / Merit) instead
+  of numbers. Works with bands and pass/fail. Needs a database upgrade (one new setting per quiz); quizzes that
+  already use the plugin are not changed.
 - **0.6.0** (2026-10-09): choose **questions that must be correct**: a student who misses one gets the lowest score.
   Works with bands, percentages and pass/fail. Needs a database upgrade (one new setting per quiz and one per counted
   attempt); quizzes that already use the plugin are not changed.

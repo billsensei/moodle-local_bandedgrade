@@ -108,6 +108,41 @@ class bands {
     }
 
     /**
+     * The position in a scale (1 = first word) that a teacher typed: the word itself or its number.
+     *
+     * @param string $text A word of the scale (any capitals) or a position such as 2.
+     * @param string[] $items The scale's words, in order.
+     * @return int|null The position, or null when the text is neither.
+     */
+    public static function scale_position(string $text, array $items): ?int {
+        $text = trim($text);
+        $items = array_values($items);
+        if (preg_match('/^\d+(\.0+)?$/', $text)) {
+            $position = (int)$text;
+            return ($position >= 1 && $position <= count($items)) ? $position : null;
+        }
+        foreach ($items as $index => $item) {
+            if ($text !== '' && \core_text::strtolower(trim($item)) === \core_text::strtolower($text)) {
+                return $index + 1;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The message for a score that is not in the scale.
+     *
+     * @param string[] $items The scale's words.
+     * @return string The message.
+     */
+    private static function scale_error(array $items): string {
+        return get_string('error_scalescore', 'local_bandedgrade', (object)[
+            'words' => implode(', ', $items),
+            'max' => count($items),
+        ]);
+    }
+
+    /**
      * Turn a pass mark into two bands, or report what is wrong in plain language.
      *
      * Fail gives the "fail" score from 0 up to the pass mark, pass gives the "pass" score from the pass mark.
@@ -116,9 +151,16 @@ class bands {
      * @param string $pass The score for a pass.
      * @param string $fail The score for a fail.
      * @param string $ruletype TYPE_COUNT or TYPE_PERCENT.
+     * @param string[]|null $scaleitems The words of the scale the scores are in (a word or its position), or null.
      * @return array [bands, errors]: errors keyed 'mark', 'pass' or 'fail'.
      */
-    public static function from_passfail(string $mark, string $pass, string $fail, string $ruletype = self::TYPE_COUNT): array {
+    public static function from_passfail(
+        string $mark,
+        string $pass,
+        string $fail,
+        string $ruletype = self::TYPE_COUNT,
+        ?array $scaleitems = null
+    ): array {
         $percent = $ruletype === self::TYPE_PERCENT;
         $errors = [];
 
@@ -139,6 +181,15 @@ class bands {
 
         $scores = [];
         foreach (['pass' => $pass, 'fail' => $fail] as $key => $text) {
+            if ($scaleitems !== null) {
+                $position = self::scale_position($text, $scaleitems);
+                if ($position === null) {
+                    $errors[$key] = self::scale_error($scaleitems);
+                    $scores[$key] = 0.0;
+                    continue;
+                }
+                $text = (string)$position;
+            }
             $text = str_replace(',', '.', trim($text));
             if (!preg_match('/^\d+(\.\d{1,5})?$/', $text)) {
                 $errors[$key] = get_string('error_score', 'local_bandedgrade');
@@ -319,9 +370,16 @@ class bands {
      * @param array $froms Row index => "from" text.
      * @param array $scores Row index => "score" text.
      * @param string $ruletype TYPE_COUNT (whole numbers of questions) or TYPE_PERCENT (0 to 100, up to 2 decimals).
+     * @param string[]|null $scaleitems The words of the scale the scores are in (each score is a word or its position),
+     *        or null for numeric scores.
      * @return array [bands, errors]: bands sorted by from; errors keyed by row index ('all' for the whole table).
      */
-    public static function from_rows(array $froms, array $scores, string $ruletype = self::TYPE_COUNT): array {
+    public static function from_rows(
+        array $froms,
+        array $scores,
+        string $ruletype = self::TYPE_COUNT,
+        ?array $scaleitems = null
+    ): array {
         $percent = $ruletype === self::TYPE_PERCENT;
         $bands = [];
         $errors = [];
@@ -347,6 +405,14 @@ class bands {
                 continue;
             } else {
                 $from = (int)$from;
+            }
+            if ($scaleitems !== null) {
+                $position = self::scale_position($score, $scaleitems);
+                if ($position === null) {
+                    $errors[$i] = self::scale_error($scaleitems);
+                    continue;
+                }
+                $score = (string)$position;
             }
             $score = str_replace(',', '.', $score);
             if ($score === '' || !preg_match('/^\d+(\.\d{1,5})?$/', $score)) {
@@ -383,9 +449,10 @@ class bands {
      *
      * @param array $bands Bands.
      * @param string $ruletype TYPE_COUNT or TYPE_PERCENT.
+     * @param string[]|null $scaleitems The words of the scale the scores are positions in, or null.
      * @return bool True if the form would accept them.
      */
-    public static function are_valid(array $bands, string $ruletype = self::TYPE_COUNT): bool {
+    public static function are_valid(array $bands, string $ruletype = self::TYPE_COUNT, ?array $scaleitems = null): bool {
         $froms = [];
         $scores = [];
         foreach (array_values($bands) as $band) {
@@ -395,7 +462,7 @@ class bands {
             $froms[] = (string)$band['from'];
             $scores[] = sprintf('%.5F', (float)$band['score']);
         }
-        [, $errors] = self::from_rows($froms, $scores, $ruletype);
+        [, $errors] = self::from_rows($froms, $scores, $ruletype, $scaleitems);
         return !$errors;
     }
 

@@ -240,6 +240,24 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertEquals(2, $DB->get_field('quiz_slots', 'slot', ['id' => $required[0], 'quizid' => $copy->id]));
     }
 
+    public function test_course_copy_keeps_a_scale(): void {
+        $scale = $this->getDataGenerator()->create_scale(['name' => 'Result', 'scale' => 'Fail, Pass, Merit',
+            'courseid' => $this->course->id]);
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 'Fail', 2 => 'Pass', 4 => 'Merit'], true, true, 'bands', null, (int)$scale->id);
+
+        $newcourseid = $this->copy_course(false);
+
+        $copy = $this->only_quiz($newcourseid);
+        $config = quiz_config::get($copy->id);
+        $this->assertNotEmpty($config->scaleid);
+        $items = gradebook::scale_items((int)$config->scaleid, $newcourseid);
+        $this->assertSame(['Fail', 'Pass', 'Merit'], $items, 'The scale is usable in the copy.');
+        $item = gradebook::get_item($config);
+        $this->assertEquals(GRADE_TYPE_SCALE, $item->gradetype);
+        $this->assertEquals($config->scaleid, $item->scaleid);
+    }
+
     public function test_duplicate_quiz_gets_its_own_column(): void {
         $quiz = $this->make_frog_quiz(2);
         $this->enable($quiz, [0 => 0, 1 => 1, 2 => 2]);

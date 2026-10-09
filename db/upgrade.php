@@ -57,5 +57,15 @@ function xmldb_local_bandedgrade_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026100910, 'local', 'bandedgrade');
     }
 
+    if ($oldversion < 2026100920) {
+        // 0.7.0: band scores can be words of a gradebook scale.
+        $table = new xmldb_table('local_bandedgrade_quiz');
+        $field = new xmldb_field('scaleid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'scheme');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2026100920, 'local', 'bandedgrade');
+    }
+
     return true;
 }

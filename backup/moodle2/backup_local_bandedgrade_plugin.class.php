@@ -40,7 +40,7 @@ class backup_local_bandedgrade_plugin extends backup_local_plugin {
         $config = new backup_nested_element(
             'bandedgrade',
             ['id'],
-            ['enabled', 'ruletype', 'scheme', 'bands', 'requiredslots', 'zeroweight', 'gradeitemid', 'timemodified']
+            ['enabled', 'ruletype', 'scheme', 'scaleid', 'bands', 'requiredslots', 'zeroweight', 'gradeitemid', 'timemodified']
         );
         $writtens = new backup_nested_element('writtens');
         $written = new backup_nested_element('written', ['id'], ['userid', 'score', 'timemodified']);

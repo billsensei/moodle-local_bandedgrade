@@ -61,6 +61,44 @@ class gradebook {
     }
 
     /**
+     * The words of a gradebook scale, if the course may use it.
+     *
+     * @param int|null $scaleid The scale id.
+     * @param int $courseid The course (a scale belongs to the site or to one course).
+     * @return string[]|null The words in order, or null when there is no such usable scale (or it has fewer than 2 words).
+     */
+    public static function scale_items(?int $scaleid, int $courseid): ?array {
+        self::require_lib();
+        if (!$scaleid) {
+            return null;
+        }
+        $scale = \grade_scale::fetch(['id' => $scaleid]);
+        if (!$scale || ($scale->courseid != 0 && $scale->courseid != $courseid)) {
+            return null;
+        }
+        $items = $scale->load_items();
+        return count($items) >= 2 ? array_values($items) : null;
+    }
+
+    /**
+     * A score as shown to teachers: the word of the scale for a scale column, else the number.
+     *
+     * @param \grade_item|null $item Our grade item.
+     * @param float $score The score (a position in the scale for a scale column).
+     * @return string The text.
+     */
+    public static function format_score(?\grade_item $item, float $score): string {
+        if ($item && (int)$item->gradetype === GRADE_TYPE_SCALE) {
+            $item->load_scale();
+            $position = (int)round($score);
+            if ($item->scale && isset($item->scale->scale_items[$position - 1])) {
+                return s($item->scale->scale_items[$position - 1]);
+            }
+        }
+        return format_float($score, -1);
+    }
+
+    /**
      * Our grade item, if it still exists.
      *
      * @param \stdClass $config The quiz settings.
@@ -88,7 +126,8 @@ class gradebook {
         global $DB;
         self::require_lib();
         $name = get_string('itemname', 'local_bandedgrade', $quiz->name);
-        $max = bands::max_score($config->bands);
+        $scaleitems = self::scale_items($config->scaleid ?? null, (int)$quiz->course);
+        $max = $scaleitems ? count($scaleitems) : bands::max_score($config->bands);
         $gradepass = self::pass_grade($config);
 
         $item = self::get_item($config);
@@ -98,8 +137,9 @@ class gradebook {
                 'courseid' => $quiz->course,
                 'itemtype' => 'manual',
                 'itemname' => $name,
-                'gradetype' => GRADE_TYPE_VALUE,
-                'grademin' => 0,
+                'gradetype' => $scaleitems ? GRADE_TYPE_SCALE : GRADE_TYPE_VALUE,
+                'scaleid' => $scaleitems ? (int)$config->scaleid : null,
+                'grademin' => $scaleitems ? 1 : 0,
                 'grademax' => $max,
                 'gradepass' => $gradepass ?? 0,
                 'iteminfo' => get_string('iteminfo', 'local_bandedgrade'),
@@ -122,8 +162,14 @@ class gradebook {
 
         // The grade to pass is ours only in the pass/fail scheme; with bands a teacher may set their own.
         $passchanged = $gradepass !== null && grade_floats_different($item->gradepass, $gradepass);
-        if ($item->itemname !== $name || grade_floats_different($item->grademax, $max) || $passchanged) {
+        $type = $scaleitems ? GRADE_TYPE_SCALE : GRADE_TYPE_VALUE;
+        $scaleid = $scaleitems ? (int)$config->scaleid : null;
+        $typechanged = (int)$item->gradetype !== $type || (int)$item->scaleid !== (int)$scaleid;
+        if ($item->itemname !== $name || grade_floats_different($item->grademax, $max) || $passchanged || $typechanged) {
             $item->itemname = $name;
+            $item->gradetype = $type;
+            $item->scaleid = $scaleid;
+            $item->grademin = $scaleitems ? 1 : 0;
             $item->grademax = $max;
             if ($passchanged) {
                 $item->gradepass = $gradepass;

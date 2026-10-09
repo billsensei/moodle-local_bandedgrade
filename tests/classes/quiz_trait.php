@@ -121,6 +121,7 @@ trait quiz_trait {
      * @param bool $enabled On or off.
      * @param string $ruletype 'bands' (from = number correct) or 'percent' (from = percentage correct).
      * @param int[]|null $required Slot numbers of the questions that must be correct (null = leave as it is).
+     * @param int|null $scaleid A gradebook scale: the scores in $bands are then its words (or positions).
      */
     protected function enable(
         \stdClass $quiz,
@@ -128,11 +129,13 @@ trait quiz_trait {
         bool $zeroweight = true,
         bool $enabled = true,
         string $ruletype = 'bands',
-        ?array $required = null
+        ?array $required = null,
+        ?int $scaleid = null
     ): void {
         $moduleinfo = (object)[
             'modulename' => 'quiz',
             'instance' => $quiz->id,
+            'bandedgrade_scale' => (int)$scaleid,
             'bandedgrade_enabled' => (int)$enabled,
             'bandedgrade_preset' => '',
             'bandedgrade_ruletype' => $ruletype,
@@ -167,6 +170,7 @@ trait quiz_trait {
      * @param string $fail Score for a fail.
      * @param string $ruletype 'bands' (the mark is a number correct) or 'percent'.
      * @param int[]|null $required Slot numbers of the questions that must be correct (null = leave as it is).
+     * @param int|null $scaleid A gradebook scale: the pass and fail scores are then its words (or positions).
      */
     protected function enable_passfail(
         \stdClass $quiz,
@@ -174,11 +178,13 @@ trait quiz_trait {
         string $pass = '1',
         string $fail = '0',
         string $ruletype = 'bands',
-        ?array $required = null
+        ?array $required = null,
+        ?int $scaleid = null
     ): void {
         $moduleinfo = (object)[
             'modulename' => 'quiz',
             'instance' => $quiz->id,
+            'bandedgrade_scale' => (int)$scaleid,
             'bandedgrade_enabled' => 1,
             'bandedgrade_scheme' => 'passfail',
             'bandedgrade_pf_ruletype' => $ruletype,

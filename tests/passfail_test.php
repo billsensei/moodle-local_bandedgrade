@@ -169,8 +169,10 @@ final class passfail_test extends \advanced_testcase {
     }
 
     public function test_form_validation_names_the_pass_fail_fields(): void {
+        $this->resetAfterTest();
         $formwrapper = $this->createStub(\moodleform_mod::class);
         $formwrapper->method('get_current')->willReturn((object)['modulename' => 'quiz']);
+        $formwrapper->method('get_course')->willReturn($this->getDataGenerator()->create_course());
         $data = ['bandedgrade_enabled' => 1, 'bandedgrade_scheme' => 'passfail', 'bandedgrade_pf_ruletype' => 'bands',
             'bandedgrade_pf_mark' => '0', 'bandedgrade_pf_pass' => 'x', 'bandedgrade_pf_fail' => '0'];
         $errors = form_section::validate($formwrapper, $data);

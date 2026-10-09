@@ -69,6 +69,7 @@ class quiz_config {
      * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT: what the bands' lower bounds measure.
      * @param string $scheme bands::SCHEME_BANDS or bands::SCHEME_PASSFAIL: how the teacher set the bands up.
      * @param int[] $requiredslots Ids (quiz_slots) of the questions that must be correct.
+     * @param int|null $scaleid A gradebook scale the band scores are positions in, or null for numeric scores.
      * @return \stdClass The saved settings (bands decoded).
      */
     public static function save(
@@ -79,7 +80,8 @@ class quiz_config {
         bool $zeroweight,
         string $ruletype = bands::TYPE_COUNT,
         string $scheme = bands::SCHEME_BANDS,
-        array $requiredslots = []
+        array $requiredslots = [],
+        ?int $scaleid = null
     ): \stdClass {
         global $DB;
         $record = $DB->get_record(self::TABLE, ['quizid' => $quizid]);
@@ -89,6 +91,7 @@ class quiz_config {
             'enabled' => (int)$enabled,
             'ruletype' => bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT,
             'scheme' => bands::is_scheme($scheme) ? $scheme : bands::SCHEME_BANDS,
+            'scaleid' => $scaleid ?: null,
             'bands' => bands::encode($bands),
             'requiredslots' => $requiredslots ? self::encode_slots($requiredslots) : null,
             'zeroweight' => (int)$zeroweight,

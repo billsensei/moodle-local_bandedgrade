@@ -89,7 +89,13 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
         // A backup file can be edited: check the bands with the form's rules, and leave it off if they fail.
         $bands = bands::decode($this->config->bands);
         $ruletype = bands::is_ruletype((string)($this->config->ruletype ?? '')) ? $this->config->ruletype : bands::TYPE_COUNT;
-        $valid = bands::are_valid($bands, $ruletype);
+        // A scale: the restore maps course scales to the new ones; a site scale keeps its id. Without a usable scale
+        // the scores stay as plain numbers (positions) so that nothing is lost.
+        $scaleid = (int)($this->config->scaleid ?? 0);
+        $scaleid = $scaleid ? (int)$this->get_mappingid('scale', $scaleid, $scaleid) : 0;
+        $scaleitems = gradebook::scale_items($scaleid, (int)$quiz->course);
+        $scaleid = $scaleitems ? $scaleid : null;
+        $valid = bands::are_valid($bands, $ruletype, $scaleitems);
         // Required questions are stored by slot id: map them to the new quiz's slots, and leave out the ones lost.
         $required = [];
         foreach (quiz_config::decode_slots($this->config->requiredslots ?? null) as $oldslotid) {
@@ -111,7 +117,8 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
             (bool)$this->config->zeroweight,
             $ruletype,
             $scheme,
-            $required
+            $required,
+            $scaleid
         );
 
         // The score column comes back only in a full course restore. In a same-course restore (duplicate, import

@@ -67,7 +67,9 @@ class form_section {
         // A new quiz starts with the first preset (the 0-3 one unless an administrator changed the presets).
         $current = $config && $config->bands ? $config->bands : (reset($presets) ?: []);
         $ruletype = $config && $config->bands ? $config->ruletype : bands::preset_ruletype((string)array_key_first($presets));
-        $preset = bands::matching_preset($current, $ruletype);
+        $courseid = (int)$formwrapper->get_course()->id;
+        $scaleitems = $config ? gradebook::scale_items($config->scaleid, $courseid) : null;
+        $preset = $scaleitems ? '' : bands::matching_preset($current, $ruletype);
         $passfail = $config && $config->scheme === bands::SCHEME_PASSFAIL ? bands::to_passfail($config->bands) : null;
         $scheme = $passfail ? bands::SCHEME_PASSFAIL : bands::SCHEME_BANDS;
 
@@ -106,6 +108,19 @@ class form_section {
         $mform->addHelpButton('bandedgrade_scheme', 'scheme', 'local_bandedgrade');
         $mform->setDefault('bandedgrade_scheme', $scheme);
         $mform->hideIf('bandedgrade_scheme', 'bandedgrade_enabled');
+
+        $scales = self::scale_options($courseid);
+        if ($scales) {
+            $mform->addElement(
+                'select',
+                'bandedgrade_scale',
+                get_string('scale', 'local_bandedgrade'),
+                ['' => get_string('scale_numbers', 'local_bandedgrade')] + array_map(fn($scale) => $scale['label'], $scales)
+            );
+            $mform->addHelpButton('bandedgrade_scale', 'scale', 'local_bandedgrade');
+            $mform->setDefault('bandedgrade_scale', $scaleitems ? (int)$config->scaleid : '');
+            $mform->hideIf('bandedgrade_scale', 'bandedgrade_enabled');
+        }
 
         $options = ['' => get_string('preset_custom', 'local_bandedgrade')] + bands::preset_names();
         $mform->addElement('select', 'bandedgrade_preset', get_string('preset', 'local_bandedgrade'), $options);
@@ -154,8 +169,8 @@ class form_section {
         $mform->setType('bandedgrade_pf_fail', PARAM_RAW_TRIMMED);
         // Without a saved pass mark, start from the pass/fail preset (6 of 10 correct) with scores 1 and 0.
         $mform->setDefault('bandedgrade_pf_mark', $passfail ? $passfail[0] : 6);
-        $mform->setDefault('bandedgrade_pf_pass', format_float($passfail ? $passfail[1] : 1, -1));
-        $mform->setDefault('bandedgrade_pf_fail', format_float($passfail ? $passfail[2] : 0, -1));
+        $mform->setDefault('bandedgrade_pf_pass', self::score_text($passfail ? $passfail[1] : 1, $scaleitems));
+        $mform->setDefault('bandedgrade_pf_fail', self::score_text($passfail ? $passfail[2] : 0, $scaleitems));
         foreach (['ruletype', 'mark', 'pass', 'fail'] as $name) {
             $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_enabled');
             $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_scheme', 'neq', bands::SCHEME_PASSFAIL);
@@ -208,7 +223,7 @@ class form_section {
             $mform->setType("bandedgrade_score[$i]", PARAM_RAW_TRIMMED);
             if (isset($current[$i])) {
                 $mform->setDefault("bandedgrade_from[$i]", $current[$i]['from']);
-                $mform->setDefault("bandedgrade_score[$i]", format_float($current[$i]['score'], -1));
+                $mform->setDefault("bandedgrade_score[$i]", self::score_text($current[$i]['score'], $scaleitems));
             }
             $mform->hideIf("bandedgrade_row$i", 'bandedgrade_enabled');
             $mform->hideIf("bandedgrade_row$i", 'bandedgrade_scheme', 'eq', bands::SCHEME_PASSFAIL);
@@ -225,6 +240,7 @@ class form_section {
             'total' => $total,
             'rows' => bands::MAX_ROWS,
             'passfail' => bands::SCHEME_PASSFAIL,
+            'scales' => array_map(fn($scale) => $scale['items'], $scales),
             'strings' => self::preview_strings() + [
                 'arrow' => get_string('arrow', 'local_bandedgrade'),
                 'arrowpercent' => get_string('arrowpercent', 'local_bandedgrade'),
@@ -234,7 +250,7 @@ class form_section {
             'static',
             'bandedgrade_preview',
             get_string('preview', 'local_bandedgrade'),
-            \html_writer::div(self::preview_html($current, $total, $ruletype), '', [
+            \html_writer::div(self::preview_html($current, $total, $ruletype, $scaleitems), '', [
                 'id' => 'local_bandedgrade_preview',
                 'aria-live' => 'polite',
                 'data-config' => json_encode($jsconfig),
@@ -283,10 +299,12 @@ class form_section {
         if (!self::is_quiz_form($formwrapper) || empty($data['bandedgrade_enabled'])) {
             return [];
         }
-        [, $errors, , $scheme] = self::bands_from_data($data);
+        [, $errors, , $scheme] = self::bands_from_data($data, (int)$formwrapper->get_course()->id);
         $result = [];
         foreach ($errors as $key => $message) {
-            if ($scheme === bands::SCHEME_PASSFAIL) {
+            if ($key === 'scale' || $key === 'preset') {
+                $result["bandedgrade_$key"] = $message;
+            } else if ($scheme === bands::SCHEME_PASSFAIL) {
                 $result["bandedgrade_pf_$key"] = $message; // The keys are mark, pass and fail.
             } else {
                 $result[$key === 'all' ? 'bandedgrade_row0' : "bandedgrade_row$key"] = $message;
@@ -315,7 +333,7 @@ class form_section {
         $enabled = !empty($moduleinfo->bandedgrade_enabled);
         $zeroweight = !empty($moduleinfo->bandedgrade_zeroweight);
 
-        [$bands, $errors, $ruletype, $scheme] = self::bands_from_data((array)$moduleinfo);
+        [$bands, $errors, $ruletype, $scheme, $scaleid] = self::bands_from_data((array)$moduleinfo, (int)$course->id);
         if ($errors) {
             if ($enabled || !$old) {
                 return $moduleinfo; // Cannot happen after validation; keep what was there.
@@ -323,6 +341,7 @@ class form_section {
             $bands = $old->bands; // Turned off with untidy rows: keep the old bands.
             $ruletype = $old->ruletype;
             $scheme = $old->scheme;
+            $scaleid = $old->scaleid;
         }
         if (!$enabled && !$old) {
             return $moduleinfo;
@@ -338,7 +357,7 @@ class form_section {
             ));
         }
 
-        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype, $scheme, $required);
+        $config = quiz_config::save($quiz->id, $course->id, $enabled, $bands, $zeroweight, $ruletype, $scheme, $required, $scaleid);
         if (!$enabled) {
             if ($old && $old->enabled && $old->zeroweight) {
                 gradebook::set_quiz_weight($quiz, false);
@@ -391,10 +410,21 @@ class form_section {
      * Get the bands from submitted data: a pass mark, a preset, or the rows.
      *
      * @param array $data Submitted data.
-     * @return array [bands, errors, ruletype, scheme]: bands and errors as from bands::from_rows() (for the pass/fail
-     *     scheme the errors are keyed mark, pass and fail), then the rule type and the scheme.
+     * @param int $courseid The course (which scales may be used).
+     * @return array [bands, errors, ruletype, scheme, scaleid]: bands and errors as from bands::from_rows() (for the
+     *     pass/fail scheme the errors are keyed mark, pass and fail; 'scale' and 'preset' name those boxes), then the
+     *     rule type, the scheme and the scale id (null for numeric scores).
      */
-    private static function bands_from_data(array $data): array {
+    private static function bands_from_data(array $data, int $courseid): array {
+        $scaleid = (int)($data['bandedgrade_scale'] ?? 0) ?: null;
+        $scaleitems = null;
+        if ($scaleid) {
+            $scaleitems = gradebook::scale_items($scaleid, $courseid);
+            if (!$scaleitems) {
+                return [[], ['scale' => get_string('error_scale', 'local_bandedgrade')], bands::TYPE_COUNT,
+                    bands::SCHEME_BANDS, null];
+            }
+        }
         if (($data['bandedgrade_scheme'] ?? '') === bands::SCHEME_PASSFAIL) {
             $ruletype = (string)($data['bandedgrade_pf_ruletype'] ?? '');
             $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
@@ -402,23 +432,68 @@ class form_section {
                 (string)($data['bandedgrade_pf_mark'] ?? ''),
                 (string)($data['bandedgrade_pf_pass'] ?? ''),
                 (string)($data['bandedgrade_pf_fail'] ?? ''),
-                $ruletype
+                $ruletype,
+                $scaleitems
             );
-            return [$bands, $errors, $ruletype, bands::SCHEME_PASSFAIL];
+            return [$bands, $errors, $ruletype, bands::SCHEME_PASSFAIL, $scaleid];
         }
         $presets = bands::presets();
         $preset = $data['bandedgrade_preset'] ?? '';
         if ($preset !== '' && isset($presets[$preset])) {
-            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset), bands::SCHEME_BANDS];
+            if ($scaleitems) {
+                // Presets give numbers, not words of a scale.
+                return [[], ['preset' => get_string('error_scalepreset', 'local_bandedgrade')], bands::TYPE_COUNT,
+                    bands::SCHEME_BANDS, $scaleid];
+            }
+            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset), bands::SCHEME_BANDS, null];
         }
         $ruletype = (string)($data['bandedgrade_ruletype'] ?? '');
         $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
         [$bands, $errors] = bands::from_rows(
             (array)($data['bandedgrade_from'] ?? []),
             (array)($data['bandedgrade_score'] ?? []),
-            $ruletype
+            $ruletype,
+            $scaleitems
         );
-        return [$bands, $errors, $ruletype, bands::SCHEME_BANDS];
+        return [$bands, $errors, $ruletype, bands::SCHEME_BANDS, $scaleid];
+    }
+
+    /**
+     * The scales a course can use for band scores: the site's and the course's, with at least 2 words.
+     *
+     * @param int $courseid The course id.
+     * @return array<int, array> Scale id => ['label' => name and words, 'items' => the words].
+     */
+    public static function scale_options(int $courseid): array {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+        $scales = array_merge(\grade_scale::fetch_all_global() ?: [], \grade_scale::fetch_all_local($courseid) ?: []);
+        $options = [];
+        foreach ($scales as $scale) {
+            $items = gradebook::scale_items((int)$scale->id, $courseid);
+            if ($items) {
+                $options[(int)$scale->id] = [
+                    'label' => shorten_text($scale->get_name() . ' (' . implode(', ', $items) . ')', 100),
+                    'items' => $items,
+                ];
+            }
+        }
+        return $options;
+    }
+
+    /**
+     * A score as text for a box: the scale word when there is a scale, else the number.
+     *
+     * @param float|int $score The score (a position in the scale when there is one).
+     * @param string[]|null $scaleitems The scale's words, or null.
+     * @return string The text.
+     */
+    private static function score_text($score, ?array $scaleitems): string {
+        $position = (int)round((float)$score);
+        if ($scaleitems && $position >= 1 && $position <= count($scaleitems)) {
+            return $scaleitems[$position - 1];
+        }
+        return format_float($score, -1);
     }
 
     /**
@@ -446,9 +521,15 @@ class form_section {
      * @param array $bands Bands.
      * @param int $total Number of questions (0 if not known yet).
      * @param string $ruletype bands::TYPE_COUNT or bands::TYPE_PERCENT.
+     * @param string[]|null $scaleitems The words of the scale the scores are positions in, or null.
      * @return string HTML.
      */
-    public static function preview_html(array $bands, int $total, string $ruletype = bands::TYPE_COUNT): string {
+    public static function preview_html(
+        array $bands,
+        int $total,
+        string $ruletype = bands::TYPE_COUNT,
+        ?array $scaleitems = null
+    ): string {
         $bands = bands::normalise($bands);
         if (!$bands) {
             return get_string('previewempty', 'local_bandedgrade');
@@ -456,12 +537,13 @@ class form_section {
         $items = [];
         foreach ($bands as $i => $band) {
             if ($ruletype === bands::TYPE_PERCENT) {
-                $a = (object)['from' => format_float($band['from'], 2, true, true), 'score' => format_float($band['score'], -1),
+                $a = (object)['from' => format_float($band['from'], 2, true, true),
+                    'score' => self::score_text($band['score'], $scaleitems),
                     'total' => $total, 'min' => $total > 0 ? bands::min_correct($band['from'], $total) : null];
                 $items[] = get_string($total > 0 ? 'previewpercentmin' : 'previewpercent', 'local_bandedgrade', $a);
                 continue;
             }
-            $a = (object)['from' => $band['from'], 'score' => format_float($band['score'], -1), 'total' => $total];
+            $a = (object)['from' => $band['from'], 'score' => self::score_text($band['score'], $scaleitems), 'total' => $total];
             $next = $bands[$i + 1]['from'] ?? null;
             if ($total > 0 && $band['from'] > $total) {
                 $items[] = get_string('previewunreachable', 'local_bandedgrade', $a);

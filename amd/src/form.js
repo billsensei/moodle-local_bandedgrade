@@ -44,14 +44,35 @@ const fill = (template, values) => Object.keys(values).reduce(
 const input = (form, kind, index) => form.querySelector(`[name="bandedgrade_${kind}[${index}]"]`);
 
 /**
+ * A score typed in a box: a number, or with a scale a word of it or its position (as bands::scale_position() in PHP).
+ *
+ * @param {string} text What was typed (a comma stands for a dot).
+ * @param {Array|null} items The words of the chosen scale, or null for numeric scores.
+ * @returns {number|null} The score, or null when it is not valid.
+ */
+const parseScore = (text, items) => {
+    const value = text.trim().replace(',', '.');
+    if (items === null) {
+        return /^\d+(\.\d{1,5})?$/.test(value) ? Number(value) : null;
+    }
+    if (/^\d+(\.0+)?$/.test(value)) {
+        const position = Number(value);
+        return position >= 1 && position <= items.length ? position : null;
+    }
+    const index = items.findIndex((item) => item.trim().toLowerCase() === text.trim().toLowerCase());
+    return value !== '' && index >= 0 ? index + 1 : null;
+};
+
+/**
  * Read the complete, valid rows, sorted by "from".
  *
  * @param {HTMLFormElement} form The form.
  * @param {number} rows Number of rows.
  * @param {boolean} percent True when "from" is a percentage (0 to 100, up to 2 decimals).
+ * @param {Array|null} items The words of the chosen scale, or null.
  * @returns {Array} Bands {from, score}.
  */
-const readBands = (form, rows, percent) => {
+const readBands = (form, rows, percent, items) => {
     const bands = [];
     for (let i = 0; i < rows; i++) {
         const from = input(form, 'from', i);
@@ -60,13 +81,13 @@ const readBands = (form, rows, percent) => {
             continue;
         }
         const fromText = from.value.trim().replace(',', '.');
-        const scoreText = score.value.trim().replace(',', '.');
+        const scoreValue = parseScore(score.value, items);
         // The same rules as bands::from_rows() in PHP, so the preview never shows a band the server would refuse.
         const fromOk = percent ? /^\d+(\.\d{1,2})?$/.test(fromText) && Number(fromText) <= 100 : /^\d+$/.test(fromText);
-        if (!fromOk || !/^\d+(\.\d{1,5})?$/.test(scoreText)) {
+        if (!fromOk || scoreValue === null) {
             continue;
         }
-        bands.push({from: Number(fromText), score: Number(scoreText)});
+        bands.push({from: Number(fromText), score: scoreValue});
     }
     return bands.sort((a, b) => a.from - b.from);
 };
@@ -78,20 +99,22 @@ const readBands = (form, rows, percent) => {
  *
  * @param {HTMLFormElement} form The form.
  * @param {boolean} percent True when the pass mark is a percentage.
+ * @param {Array|null} items The words of the chosen scale, or null.
  * @returns {Array} Bands {from, score}, or none while a box is not valid.
  */
-const readPassFail = (form, percent) => {
+const readPassFail = (form, percent, items) => {
     const value = (name) => {
         const box = form.querySelector(`[name="bandedgrade_pf_${name}"]`);
         return box ? box.value.trim().replace(',', '.') : '';
     };
     const mark = value('mark');
     const markOk = percent ? /^\d+(\.\d{1,2})?$/.test(mark) && Number(mark) <= 100 : /^\d+$/.test(mark);
-    const scoreOk = /^\d+(\.\d{1,5})?$/;
-    if (!markOk || Number(mark) <= 0 || !scoreOk.test(value('pass')) || !scoreOk.test(value('fail'))) {
+    const pass = parseScore(value('pass'), items);
+    const fail = parseScore(value('fail'), items);
+    if (!markOk || Number(mark) <= 0 || pass === null || fail === null) {
         return [];
     }
-    return [{from: 0, score: Number(value('fail'))}, {from: Number(mark), score: Number(value('pass'))}];
+    return [{from: 0, score: fail}, {from: Number(mark), score: pass}];
 };
 
 /**
@@ -118,8 +141,9 @@ const minCorrect = (percent, total) => {
  * @param {number} total Number of questions (0 if unknown).
  * @param {Object} strings Preview strings with placeholders.
  * @param {boolean} percent True when the bands are percentages.
+ * @param {Array|null} items The words of the chosen scale, or null.
  */
-const renderPreview = (target, bands, total, strings, percent) => {
+const renderPreview = (target, bands, total, strings, percent, items) => {
     target.textContent = '';
     if (!bands.length) {
         target.textContent = strings.previewempty;
@@ -128,7 +152,8 @@ const renderPreview = (target, bands, total, strings, percent) => {
     const list = document.createElement('ul');
     list.className = 'list-unstyled mb-0';
     bands.forEach((band, i) => {
-        const values = {from: band.from, score: band.score, total: total};
+        const score = items && items[band.score - 1] !== undefined ? items[band.score - 1] : band.score;
+        const values = {from: band.from, score: score, total: total};
         const next = i + 1 < bands.length ? bands[i + 1].from : null;
         let text;
         if (percent) {
@@ -174,6 +199,8 @@ export const init = () => {
     const ruletype = form.querySelector('select[name="bandedgrade_ruletype"]');
     const scheme = form.querySelector('select[name="bandedgrade_scheme"]');
     const pfRuletype = form.querySelector('select[name="bandedgrade_pf_ruletype"]');
+    const scale = form.querySelector('select[name="bandedgrade_scale"]');
+    const scaleItems = () => (scale !== null && config.scales[scale.value] ? config.scales[scale.value] : null);
     const isPassFail = () => scheme !== null && scheme.value === config.passfail;
     const isPercent = () => {
         const select = isPassFail() ? pfRuletype : ruletype;
@@ -184,8 +211,9 @@ export const init = () => {
         form.querySelectorAll('.local-bandedgrade-arrow').forEach((arrow) => {
             arrow.textContent = percent ? config.strings.arrowpercent : config.strings.arrow;
         });
-        const bands = isPassFail() ? readPassFail(form, percent) : readBands(form, config.rows, percent);
-        renderPreview(preview, bands, config.total, config.strings, percent);
+        const items = scaleItems();
+        const bands = isPassFail() ? readPassFail(form, percent, items) : readBands(form, config.rows, percent, items);
+        renderPreview(preview, bands, config.total, config.strings, percent, items);
     };
 
     preset.addEventListener('change', () => {
@@ -207,7 +235,7 @@ export const init = () => {
             update();
         }
     });
-    [ruletype, pfRuletype, scheme].forEach((select) => {
+    [ruletype, pfRuletype, scheme, scale].forEach((select) => {
         if (select) {
             select.addEventListener('change', update);
         }

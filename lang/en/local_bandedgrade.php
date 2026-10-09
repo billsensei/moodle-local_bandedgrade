@@ -51,6 +51,9 @@ $string['error_presetmixed'] = 'Write % after every band start, or after none. F
 $string['error_presetname'] = 'Use a name of at most {$a} characters.';
 $string['error_presetpair'] = '"{$a}" is not a band. Write each band as "from this many correct = score", like 5=2. Use a dot in scores, like 2.5.';
 $string['error_presetrows'] = 'Use at most {$a} bands in one set.';
+$string['error_scale'] = 'That scale cannot be used for this course. Choose another scale, or use numbers.';
+$string['error_scalepreset'] = 'The ready-made bands give numbers, not words of a scale. Choose "My own bands (type them below)" and give each band a word of the scale.';
+$string['error_scalescore'] = 'Type one of the words of the scale ({$a->words}), or its number (1 to {$a->max}).';
 $string['error_score'] = 'Type a score of 0 or more, like 0, 1 or 2.5 (at most 5 decimal places).';
 $string['error_scoremax'] = 'Use a score up to {$a}.';
 $string['error_toofew'] = 'Fill in at least two bands, for example "0 → 0" and "5 → 1".';
@@ -149,6 +152,13 @@ $string['ruletype_help'] = 'Choose what the bands measure.
 
 With "Number correct" a band can be out of reach if the quiz has too few questions. With percentages, 100% is always reachable.';
 $string['ruletype_percent'] = 'The percentage of questions answered correctly';
+$string['scale'] = 'Scores are';
+$string['scale_help'] = 'Choose **Numbers** to give plain numeric scores, or pick one of your gradebook scales, such as "Fail, Pass, Merit, Distinction".
+
+With a scale, give each band a word of the scale (or its number: 1 is the first word). The gradebook column then shows those words. You can make a scale in the gradebook under *Scales*.
+
+The ready-made bands do not work with a scale: choose "My own bands" and type the words.';
+$string['scale_numbers'] = 'Numbers';
 $string['scheme'] = 'How to give scores';
 $string['scheme_bands'] = 'A list of bands (several scores)';
 $string['scheme_help'] = '**A list of bands:** give different scores for different numbers correct, such as 0 to 3.
