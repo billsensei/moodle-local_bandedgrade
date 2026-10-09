@@ -141,7 +141,8 @@ class provider implements
             if (!$quizid) {
                 continue;
             }
-            $attempts = $DB->get_records_sql("SELECT b.attemptid, qa.attempt, b.correctcount, b.missedrequired, b.pending, b.timemodified
+            $attempts = $DB->get_records_sql("SELECT b.attemptid, qa.attempt, b.correctcount, b.missedrequired, b.pending,
+                                                     b.timemodified
                                                 FROM {local_bandedgrade_attempt} b
                                            LEFT JOIN {quiz_attempts} qa ON qa.id = b.attemptid
                                                WHERE b.quizid = :quizid AND b.userid = :userid
