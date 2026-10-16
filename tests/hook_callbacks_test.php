@@ -141,4 +141,38 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->assertArrayHasKey($student->id, reset($colours));
         $this->assertStringContainsString('80', reset($colours)[$student->id][1]);
     }
+
+    public function test_grader_report_colours_follow_the_course_group_mode(): void {
+        global $DB;
+        $quiz = $this->make_frog_quiz(5); // The quiz itself has no groups.
+        $this->enable($quiz, [0 => 0, 1 => 1, 3 => 2]);
+        $DB->set_field('course', 'groupmode', SEPARATEGROUPS, ['id' => $this->course->id]);
+        rebuild_course_cache($this->course->id, true);
+        $this->course = get_course($this->course->id);
+
+        $generator = $this->getDataGenerator();
+        $mine = $generator->create_and_enrol($this->course);
+        $other = $generator->create_and_enrol($this->course);
+        $this->attempt($quiz, $mine, $this->frogs(4, 5));
+        $this->attempt($quiz, $other, $this->frogs(5, 5));
+        $groupa = $generator->create_group(['courseid' => $this->course->id]);
+        $groupb = $generator->create_group(['courseid' => $this->course->id]);
+        $generator->create_group_member(['groupid' => $groupa->id, 'userid' => $mine->id]);
+        $generator->create_group_member(['groupid' => $groupb->id, 'userid' => $other->id]);
+
+        // A non-editing teacher who may see the quiz reports but not every group.
+        $teacher = $generator->create_and_enrol($this->course, 'teacher');
+        $role = $DB->get_record('role', ['shortname' => 'teacher'], '*', MUST_EXIST);
+        $coursecontext = \context_course::instance($this->course->id);
+        assign_capability('mod/quiz:viewreports', CAP_ALLOW, $role->id, $coursecontext->id);
+        assign_capability('moodle/site:accessallgroups', CAP_PREVENT, $role->id, $coursecontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->setUser($teacher);
+        $this->assertSame([], $this->grader_colours(), 'In no group: nobody.');
+
+        $generator->create_group_member(['groupid' => $groupa->id, 'userid' => $teacher->id]);
+        $all = $this->grader_colours();
+        $colours = reset($all);
+        $this->assertSame([(int)$mine->id], array_map('intval', array_keys($colours)), 'Only the teacher\'s own group.');
+    }
 }

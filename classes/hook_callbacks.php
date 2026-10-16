@@ -78,7 +78,7 @@ class hook_callbacks {
     public static function before_standard_footer_html_generation(
         \core\hook\output\before_standard_footer_html_generation $hook
     ): void {
-        global $PAGE, $DB;
+        global $PAGE, $DB, $USER;
         if (during_initial_install() || $PAGE->pagetype !== 'grade-report-grader-index' || !$PAGE->course) {
             return;
         }
@@ -97,6 +97,16 @@ class hook_callbacks {
         }
         $modinfo = get_fast_modinfo($course);
         $groupid = (int)groups_get_course_group($course);
+        // The grader report follows the course's group mode, which can differ from the quiz's: in separate groups
+        // without access to all groups, only members of the user's own groups may be listed.
+        $visible = null;
+        $separate = groups_get_course_groupmode($course) == SEPARATEGROUPS;
+        if ($separate && !has_capability('moodle/site:accessallgroups', $coursecontext)) {
+            $visible = [];
+            foreach (array_keys(groups_get_all_groups($course->id, $USER->id)) as $mygroupid) {
+                $visible += groups_get_members($mygroupid, 'u.id');
+            }
+        }
         $colours = [];
         foreach ($configs as $row) {
             $config = quiz_config::get_enabled((int)$row->quizid);
@@ -114,6 +124,9 @@ class hook_callbacks {
             $quiz = $DB->get_record('quiz', ['id' => $row->quizid], 'id, grademethod', MUST_EXIST);
             $total = counter::question_total((int)$quiz->id);
             foreach (report::rows($quiz, $cm, $cm->context, $groupid) as $userrow) {
+                if ($visible !== null && !isset($visible[$userrow->userid])) {
+                    continue;
+                }
                 $percent = colour::percent($userrow->used, $total);
                 $name = colour::name($percent);
                 if ($name !== null) {

@@ -224,6 +224,9 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.8.2** (2026-10-16): security fix. In a course set to separate groups, the grader-report colours no longer
+  include students from groups the teacher cannot access, even when the quiz itself has no groups. Upgrade from 0.8.0
+  and 0.8.1 is recommended. No database change.
 - **0.8.1** (2026-10-16): the colours in the grader report are shown only to people who may view the quiz's reports
   (`mod/quiz:viewreports`). Recalculating a very large quiz now works through the students in groups of 200, so it
   uses less memory. No database change.
