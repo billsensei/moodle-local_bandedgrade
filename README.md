@@ -79,7 +79,23 @@ To see **how many questions** each student got right, open the quiz and click **
 
 - the number correct in each attempt (*waiting for marking* while an essay is not marked yet),
 - the number correct used for the score, which follows the quiz's grading method,
+- the percentage of questions answered correctly, in colour,
 - the score in the gradebook, marked **Changed by hand** if you changed it.
+
+**Colours.** The percentage of questions answered correctly (the number correct used for the score, divided by the number
+of questions) is colour coded on the Number correct page and in the score column of the grader report. Hover over a
+coloured cell in the grader report to see the percentage.
+
+| Percentage | Colour |
+|---|---|
+| 0% to 59.9% | Red |
+| 60% to 69.9% | Yellow |
+| 70% to 79.9% | Light blue |
+| 80% to 89.9% | Blue |
+| 90% to 100% | Green |
+
+The percentage is rounded to one decimal first, so 59.96% is shown as 60% and is yellow. The colours are the same for
+every quiz and do not depend on your bands. A student with no count yet (for example waiting for marking) is not coloured.
 
 In a quiz with separate groups, you see only the students in your groups, as in the quiz's own reports.
 
@@ -208,6 +224,12 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.8.1** (2026-10-16): the colours in the grader report are shown only to people who may view the quiz's reports
+  (`mod/quiz:viewreports`). Recalculating a very large quiz now works through the students in groups of 200, so it
+  uses less memory. No database change.
+- **0.8.0** (2026-10-15): scores are **colour coded** by the percentage of questions answered correctly (red below 60%,
+  yellow 60%, light blue 70%, blue 80%, green 90% and up), on the Number correct page and in the grader report. No
+  database change; purge caches after upgrading so the new stylesheet loads.
 - **0.7.1** (2026-10-09): adds the `LICENSE` file (GNU GPL v3). No change to how the plugin works.
 - **0.7.0** (2026-10-09): give scores as the words of a **gradebook scale** (for example Fail / Pass / Merit) instead
   of numbers. Works with bands and pass/fail. Needs a database upgrade (one new setting per quiz); quizzes that

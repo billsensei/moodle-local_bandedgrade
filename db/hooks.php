@@ -29,4 +29,8 @@ $callbacks = [
         'hook' => \core\hook\output\before_http_headers::class,
         'callback' => [\local_bandedgrade\hook_callbacks::class, 'before_http_headers'],
     ],
+    [
+        'hook' => \core\hook\output\before_standard_footer_html_generation::class,
+        'callback' => [\local_bandedgrade\hook_callbacks::class, 'before_standard_footer_html_generation'],
+    ],
 ];

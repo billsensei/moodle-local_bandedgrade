@@ -23,6 +23,7 @@
  */
 
 use local_bandedgrade\event\report_viewed;
+use local_bandedgrade\local\colour;
 use local_bandedgrade\local\counter;
 use local_bandedgrade\local\gradebook;
 use local_bandedgrade\local\quiz_config;
@@ -85,6 +86,7 @@ $table->head = [
     get_string('reportstudent', 'local_bandedgrade'),
     get_string('reportattempts', 'local_bandedgrade'),
     get_string('reportused', 'local_bandedgrade'),
+    get_string('reportpercent', 'local_bandedgrade'),
     get_string('reportscore', 'local_bandedgrade'),
 ];
 $item = gradebook::get_item($config);
@@ -98,13 +100,27 @@ foreach ($rows as $row) {
     if ($row->byhand) {
         $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge bg-info text-dark');
     }
+    $percentvalue = colour::percent($row->used, $total);
+    $colourname = colour::name($percentvalue);
+    $percentcell = $colourname === null ? '-' : html_writer::span(
+        get_string('percentvalue', 'local_bandedgrade', format_float($percentvalue, 1, true, true)),
+        colour::css_class($colourname)
+    );
+    if ($colourname !== null) {
+        $score = html_writer::span($score, colour::css_class($colourname));
+    }
     $table->data[] = [
         html_writer::link(new moodle_url('/user/view.php', ['id' => $row->userid, 'course' => $course->id]), s($row->name)),
         $attempts ? s(implode(', ', $attempts)) : '-',
         $row->used === null ? '-' : format_float($row->used, 2, true, true) .
             ($percent ? ' (' . format_float($row->used / $total * 100, 2, true, true) . '%)' : ''),
+        $percentcell,
         $score,
     ];
 }
 echo html_writer::table($table);
+echo html_writer::tag('p', get_string('reportcolourkey', 'local_bandedgrade') . ' ' . implode(' ', array_map(
+    fn($name) => html_writer::span(get_string('colour_' . $name, 'local_bandedgrade'), colour::css_class($name)),
+    colour::NAMES
+)), ['class' => 'small']);
 echo $OUTPUT->footer();

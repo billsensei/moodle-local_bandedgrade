@@ -391,7 +391,9 @@ class form_section {
     public static function slot_options(int $quizid): array {
         global $CFG;
         require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-        $structure = \mod_quiz\structure::create_for_quiz(\mod_quiz\quiz_settings::create($quizid));
+        $quizsettings = \mod_quiz\quiz_settings::create($quizid);
+        $structure = \mod_quiz\structure::create_for_quiz($quizsettings);
+        $context = $quizsettings->get_context();
         $options = [];
         foreach ($structure->get_slots() as $slot) {
             if ((float)$slot->maxmark <= 0) {
@@ -400,7 +402,7 @@ class form_section {
             $name = $structure->get_question_in_slot($slot->slot)->name ?? '';
             $options[(int)$slot->id] = get_string('requiredoption', 'local_bandedgrade', (object)[
                 'number' => s($structure->get_displayed_number_for_slot($slot->slot)),
-                'name' => shorten_text(format_string($name), 80),
+                'name' => shorten_text(format_string($name, true, ['context' => $context]), 80),
             ]);
         }
         return $options;

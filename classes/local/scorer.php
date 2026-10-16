@@ -47,6 +47,9 @@ class scorer {
     /** @var string Result: another rescore of the quiz was running, so a background rescore was queued instead. */
     const RESULT_QUEUED = 'queued';
 
+    /** @var int Students handled per step when a whole quiz is rescored (changed only by tests). */
+    public static int $chunksize = 200;
+
     /** @var int Seconds a student's rescore waits for another rescore of the same quiz before handing over. */
     const LOCK_WAIT_USER = 5;
 
@@ -202,7 +205,7 @@ class scorer {
             'id, uniqueid, attempt, userid'
         );
         $counts = counter::count_attempts($attempts, null, counter::required_slot_numbers($quizid, $config->requiredslots));
-        self::store_counts($quizid, $attempts, $counts, $userid);
+        self::store_counts($quizid, $attempts, $counts, [$userid]);
 
         $item = gradebook::ensure_item($config, $quiz);
         $score = self::score_for_attempts($config, (int)$quiz->grademethod, $counts, counter::question_total($quizid));
@@ -249,39 +252,64 @@ class scorer {
             return [];
         }
 
-        $attempts = $DB->get_records(
-            'quiz_attempts',
-            ['quiz' => $quizid, 'preview' => 0, 'state' => quiz_attempt::FINISHED],
-            'userid ASC, attempt ASC',
-            'id, uniqueid, attempt, userid'
-        );
-        $counts = counter::count_attempts($attempts, $quizid, counter::required_slot_numbers($quizid, $config->requiredslots));
-        self::store_counts($quizid, $attempts, $counts);
-
-        $byuser = [];
-        foreach ($attempts as $attempt) {
-            $byuser[$attempt->userid][] = $counts[$attempt->id];
-        }
-
+        $required = counter::required_slot_numbers($quizid, $config->requiredslots);
         $item = gradebook::ensure_item($config, $quiz);
-        $writtens = $DB->get_records('local_bandedgrade_written', ['quizid' => $quizid], '', 'userid, id, score');
-        $grades = $DB->get_records('grade_grades', ['itemid' => $item->id], '', 'userid, id, finalgrade');
-
-        $results = [];
         $total = counter::question_total($quizid);
-        $userids = array_unique(array_merge(array_keys($byuser), array_keys($writtens)));
-        foreach ($userids as $userid) {
-            $score = self::score_for_attempts($config, (int)$quiz->grademethod, $byuser[$userid] ?? [], $total);
-            $result = self::write(
-                $item,
-                $quizid,
-                (int)$userid,
-                $score,
-                in_array((int)$userid, $overwriteuserids, true),
-                $writtens[$userid] ?? null,
-                $grades[$userid] ?? null
+
+        // Every student who has finished attempts, a stored count or a written score, so stale rows are cleaned up too.
+        $userids = array_unique(array_merge(
+            $DB->get_fieldset_select('quiz_attempts', 'DISTINCT userid', 'quiz = ? AND preview = 0 AND state = ?', [
+                $quizid, quiz_attempt::FINISHED]),
+            $DB->get_fieldset_select('local_bandedgrade_attempt', 'DISTINCT userid', 'quizid = ?', [$quizid]),
+            $DB->get_fieldset_select('local_bandedgrade_written', 'userid', 'quizid = ?', [$quizid])
+        ));
+        sort($userids);
+
+        // One chunk of students at a time keeps memory and transaction size flat for large quizzes.
+        $results = [];
+        foreach (array_chunk($userids, self::$chunksize) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED);
+            $attempts = $DB->get_records_select(
+                'quiz_attempts',
+                "quiz = :quizid AND preview = 0 AND state = :state AND userid $insql",
+                ['quizid' => $quizid, 'state' => quiz_attempt::FINISHED] + $params,
+                'userid ASC, attempt ASC',
+                'id, uniqueid, attempt, userid'
             );
-            $results[$result] = ($results[$result] ?? 0) + 1;
+            $counts = counter::count_attempts($attempts, null, $required);
+            self::store_counts($quizid, $attempts, $counts, $chunk);
+
+            $byuser = [];
+            foreach ($attempts as $attempt) {
+                $byuser[$attempt->userid][] = $counts[$attempt->id];
+            }
+            $writtens = $DB->get_records_select(
+                'local_bandedgrade_written',
+                "quizid = :quizid AND userid $insql",
+                ['quizid' => $quizid] + $params,
+                '',
+                'userid, id, score'
+            );
+            $grades = $DB->get_records_select(
+                'grade_grades',
+                "itemid = :itemid AND userid $insql",
+                ['itemid' => $item->id] + $params,
+                '',
+                'userid, id, finalgrade'
+            );
+            foreach ($chunk as $userid) {
+                $score = self::score_for_attempts($config, (int)$quiz->grademethod, $byuser[$userid] ?? [], $total);
+                $result = self::write(
+                    $item,
+                    $quizid,
+                    (int)$userid,
+                    $score,
+                    in_array((int)$userid, $overwriteuserids, true),
+                    $writtens[$userid] ?? null,
+                    $grades[$userid] ?? null
+                );
+                $results[$result] = ($results[$result] ?? 0) + 1;
+            }
         }
         return $results;
     }
@@ -331,16 +359,17 @@ class scorer {
      * @param int $quizid The quiz id.
      * @param \stdClass[] $attempts Finished attempts.
      * @param \stdClass[] $counts Counts keyed by attempt id.
-     * @param int|null $userid Only this student, or null for everyone.
+     * @param int[] $userids The students whose old counts are replaced (those in $attempts must be among them).
      */
-    private static function store_counts(int $quizid, array $attempts, array $counts, ?int $userid = null): void {
+    private static function store_counts(int $quizid, array $attempts, array $counts, array $userids): void {
         global $DB;
-        $conditions = ['quizid' => $quizid];
-        if ($userid !== null) {
-            $conditions['userid'] = $userid;
-        }
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $transaction = $DB->start_delegated_transaction();
-        $DB->delete_records('local_bandedgrade_attempt', $conditions);
+        $DB->delete_records_select(
+            'local_bandedgrade_attempt',
+            "quizid = :quizid AND userid $insql",
+            ['quizid' => $quizid] + $params
+        );
         $now = time();
         $rows = [];
         foreach ($attempts as $attempt) {

@@ -98,4 +98,47 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->enable($quiz, [0 => 0, 1 => 1, 2 => 2], true, false);
         $this->assertSame([], $this->warnings_on($quiz));
     }
+
+    /**
+     * Run the grader report footer hook and return the colour data it adds.
+     *
+     * @return array Item id => user id => [css class, title].
+     */
+    private function grader_colours(): array {
+        global $PAGE;
+        $PAGE = new \moodle_page();
+        $PAGE->set_course($this->course);
+        $PAGE->set_pagetype('grade-report-grader-index');
+        $hook = new \core\hook\output\before_standard_footer_html_generation($PAGE->get_renderer('core'));
+        hook_callbacks::before_standard_footer_html_generation($hook);
+        if (!preg_match('/data-colours="([^"]*)"/', $hook->get_output(), $matches)) {
+            return [];
+        }
+        return json_decode(html_entity_decode($matches[1]), true);
+    }
+
+    public function test_grader_report_colours_need_the_quiz_report_capability(): void {
+        $quiz = $this->make_frog_quiz(5);
+        $this->enable($quiz, [0 => 0, 1 => 1, 3 => 2]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->attempt($quiz, $student, $this->frogs(4, 5));
+
+        // A grader who can see all grades but not the quiz reports.
+        $roleid = $this->getDataGenerator()->create_role();
+        $coursecontext = \context_course::instance($this->course->id);
+        assign_capability('moodle/grade:viewall', CAP_ALLOW, $roleid, $coursecontext->id);
+        assign_capability('mod/quiz:view', CAP_ALLOW, $roleid, $coursecontext->id);
+        $grader = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($grader->id, $this->course->id, $roleid);
+        $this->setUser($grader);
+        $this->assertSame([], $this->grader_colours(), 'No colours without mod/quiz:viewreports.');
+
+        // The same person with the capability sees the student (4 of 5 correct = 80%).
+        assign_capability('mod/quiz:viewreports', CAP_ALLOW, $roleid, $coursecontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+        $colours = $this->grader_colours();
+        $this->assertCount(1, $colours);
+        $this->assertArrayHasKey($student->id, reset($colours));
+        $this->assertStringContainsString('80', reset($colours)[$student->id][1]);
+    }
 }

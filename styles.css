@@ -1,0 +1,38 @@
+/* Colour codes for the percentage of questions answered correctly (local_bandedgrade). */
+.local_bandedgrade-red,
+.local_bandedgrade-yellow,
+.local_bandedgrade-lightblue,
+.local_bandedgrade-blue,
+.local_bandedgrade-green {
+    color: #212529;
+}
+
+.local_bandedgrade-red {
+    background-color: #f8c9cd;
+}
+
+.local_bandedgrade-yellow {
+    background-color: #ffe69c;
+}
+
+.local_bandedgrade-lightblue {
+    background-color: #cfeefa;
+}
+
+.local_bandedgrade-blue {
+    background-color: #9ec5fe;
+}
+
+.local_bandedgrade-green {
+    background-color: #b6e3c6;
+}
+
+span.local_bandedgrade-red,
+span.local_bandedgrade-yellow,
+span.local_bandedgrade-lightblue,
+span.local_bandedgrade-blue,
+span.local_bandedgrade-green {
+    display: inline-block;
+    padding: 0 0.5rem;
+    border-radius: 0.25rem;
+}
