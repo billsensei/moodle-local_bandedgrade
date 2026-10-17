@@ -118,7 +118,14 @@ jobs:
       - name: Behat features
         id: behat
         if: ${{ !cancelled() }}
-        run: moodle-plugin-ci behat --profile chrome --scss-deprecations
+        # The SCSS deprecation check is a whole-run switch. It is off on 5.3 because core's own quiz report selector
+        # (mod/quiz/classes/output/quiz_report_action_selector.php) still uses the deprecated .sr-only class there.
+        run: |
+          if [ "${{ matrix.moodle-branch }}" = "MOODLE_503_STABLE" ]; then
+            moodle-plugin-ci behat --profile chrome
+          else
+            moodle-plugin-ci behat --profile chrome --scss-deprecations
+          fi
 
       - name: Upload Behat Faildump
         if: ${{ failure() && steps.behat.outcome == 'failure' }}
