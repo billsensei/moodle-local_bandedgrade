@@ -128,7 +128,7 @@ class hook_callbacks {
             if (!has_capability('mod/quiz:viewreports', $cm->context)) {
                 continue; // The colour shows the share correct, which only people who see the quiz reports may know.
             }
-            if ($item->is_hidden() && !has_capability('moodle/grade:viewhidden', $coursecontext)) {
+            if (!report::scores_visible($item, $coursecontext)) {
                 continue;
             }
             $quiz = $DB->get_record('quiz', ['id' => $row->quizid], 'id, grademethod', MUST_EXIST);

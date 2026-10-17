@@ -87,9 +87,13 @@ $table->head = [
     get_string('reportattempts', 'local_bandedgrade'),
     get_string('reportused', 'local_bandedgrade'),
     get_string('reportpercent', 'local_bandedgrade'),
-    get_string('reportscore', 'local_bandedgrade'),
 ];
 $item = gradebook::get_item($config);
+// A hidden score column is shown only to people who may see hidden grades.
+$showscores = report::scores_visible($item, context_course::instance($course->id));
+if ($showscores) {
+    $table->head[] = get_string('reportscore', 'local_bandedgrade');
+}
 $waiting = get_string('reportwaiting', 'local_bandedgrade');
 $missedrequired = get_string('reportmissed', 'local_bandedgrade');
 $percent = $config->ruletype === 'percent' && $total > 0;
@@ -109,14 +113,17 @@ foreach ($rows as $row) {
     if ($colourname !== null) {
         $score = html_writer::span($score, colour::css_class($colourname));
     }
-    $table->data[] = [
+    $cells = [
         html_writer::link(new moodle_url('/user/view.php', ['id' => $row->userid, 'course' => $course->id]), s($row->name)),
         $attempts ? s(implode(', ', $attempts)) : '-',
         $row->used === null ? '-' : format_float($row->used, 2, true, true) .
             ($percent ? ' (' . format_float($row->used / $total * 100, 2, true, true) . '%)' : ''),
         $percentcell,
-        $score,
     ];
+    if ($showscores) {
+        $cells[] = $score;
+    }
+    $table->data[] = $cells;
 }
 echo html_writer::table($table);
 echo html_writer::tag('p', get_string('reportcolourkey', 'local_bandedgrade') . ' ' . implode(' ', array_map(

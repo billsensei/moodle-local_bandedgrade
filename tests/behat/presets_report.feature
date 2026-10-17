@@ -88,6 +88,35 @@ Feature: Site presets, the "Number correct" report and the unreachable band warn
       | Student     | Correct in each attempt | Number correct used for the score | Score in the gradebook |
       | Student One | 3                       | 3                                 | 1                      |
 
+  Scenario: A hidden score column is left out of the report for a teacher who may not see hidden grades
+    Given I am on the "Quiz 1" "quiz activity editing" page logged in as "teacher1"
+    And I set the following fields to these values:
+      | Grade by number correct         | 1                              |
+      | Bands                           | My own bands (type them below) |
+      | Band 1: from this many correct  | 0                              |
+      | Band 1: score                   | 0                              |
+      | Band 2: from this many correct  | 2                              |
+      | Band 2: score                   | 1                              |
+      | Band 3: from this many correct  | 4                              |
+      | Band 3: score                   | 2                              |
+    And I press "Save and display"
+    And user "student1" has attempted "Quiz 1" with responses:
+      | slot | response |
+      | 1    | True     |
+      | 2    | False    |
+      | 3    | True     |
+      | 4    | True     |
+    And the score column of quiz "Quiz 1" is hidden
+    When I am on the "Quiz 1" "quiz activity" page
+    And I navigate to "Number correct" in current page administration
+    Then I should see "Score in the gradebook"
+    And the following "permission overrides" exist:
+      | capability              | permission | role           | contextlevel | reference |
+      | moodle/grade:viewhidden | Prohibit   | editingteacher | Course       | C1        |
+    And I reload the page
+    And I should not see "Score in the gradebook"
+    And I should see "Student One"
+
   Scenario: The teacher is warned when a band can never be reached
     Given I am on the "Quiz 1" "quiz activity editing" page logged in as "teacher1"
     And I set the following fields to these values:

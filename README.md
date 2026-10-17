@@ -217,7 +217,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.9.2 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.9.3 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility
@@ -226,6 +226,9 @@ Moodle 5.0, 5.1, 5.2 and 5.3, PHP 8.2 or later (5.2 and 5.3 need PHP 8.3). Autom
 
 ### Changelog
 
+- **0.9.3** (2026-10-17): fix. When the quiz's score column is hidden in the gradebook, the **Number correct** report
+  leaves out the "Score in the gradebook" column for teachers who may not see hidden grades (as the colours in the
+  grader report already did).
 - **0.9.2** (2026-10-17): now supports Moodle 5.3 (tested with automated checks on 5.0, 5.1, 5.2 and 5.3). No change
   to how the plugin works.
 - **0.9.1** (2026-10-17): fix. The light blue band (70% to 79.9%) is a little darker, so it still shows on the pale blue

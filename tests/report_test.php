@@ -122,6 +122,28 @@ final class report_test extends \advanced_testcase {
         return report::attempt_colours((int)$quiz->id, $cm, \context_module::instance($cm->id), $groupid);
     }
 
+    public function test_hidden_score_column_needs_permission_to_see_hidden_grades(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $item = $this->item($quiz);
+        $context = \context_course::instance($this->course->id);
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'editingteacher');
+        $blocked = $this->getDataGenerator()->create_and_enrol($this->course, 'editingteacher');
+        $roleid = $this->getDataGenerator()->create_role();
+        assign_capability('moodle/grade:viewhidden', CAP_PROHIBIT, $roleid, $context->id);
+        role_assign($roleid, $blocked->id, $context->id);
+
+        $this->setUser($blocked);
+        $this->assertTrue(report::scores_visible($item, $context), 'A visible column is shown to everyone.');
+        $this->assertTrue(report::scores_visible(null, $context), 'No column: nothing to hide.');
+
+        $item->set_hidden(1, false);
+        $item = $this->item($quiz);
+        $this->assertFalse(report::scores_visible($item, $context), 'Hidden column, no permission to see hidden grades.');
+        $this->setUser($teacher);
+        $this->assertTrue(report::scores_visible($item, $context), 'Hidden column, may see hidden grades.');
+    }
+
     public function test_attempt_colours(): void {
         $quiz = $this->make_frog_quiz(4);
         $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);

@@ -93,6 +93,19 @@ class report {
     }
 
     /**
+     * Whether the current user may see the scores of a banded score column.
+     *
+     * A hidden column is for people who may see hidden grades, like the gradebook and the grader report colours.
+     *
+     * @param \grade_item|null $item The score column, if it exists.
+     * @param \context_course $coursecontext The course context.
+     * @return bool True if the scores may be shown.
+     */
+    public static function scores_visible(?\grade_item $item, \context_course $coursecontext): bool {
+        return !$item || !$item->is_hidden() || has_capability('moodle/grade:viewhidden', $coursecontext);
+    }
+
+    /**
      * The colour of each counted attempt of a quiz, for the quiz's own Results reports (Grades and Responses).
      *
      * An attempt is coloured by the percentage of questions it got fully right, like the scores. Only the students the

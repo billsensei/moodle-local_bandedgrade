@@ -54,6 +54,24 @@ class behat_local_bandedgrade extends behat_base {
     }
 
     /**
+     * Hide the score column that banded grading made for a quiz in the gradebook.
+     *
+     * @Given /^the score column of quiz "(?P<quizname>[^"]*)" is hidden$/
+     * @param string $quizname Quiz name.
+     */
+    public function the_score_column_of_quiz_is_hidden(string $quizname): void {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+        $cm = $this->get_cm_by_activity_name('quiz', $quizname);
+        $config = \local_bandedgrade\local\quiz_config::get((int)$cm->instance);
+        $item = $config ? \local_bandedgrade\local\gradebook::get_item($config) : null;
+        if (!$item) {
+            throw new Exception('Quiz "' . $quizname . '" has no score column');
+        }
+        $item->set_hidden(1, false);
+    }
+
+    /**
      * Open the recalculate page of a quiz, check it is refused, then leave the error page.
      *
      * Behat fails any step that ends on an exception page, so the check and the navigation away are one step.
