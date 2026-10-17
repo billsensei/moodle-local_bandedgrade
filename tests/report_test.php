@@ -110,6 +110,69 @@ final class report_test extends \advanced_testcase {
         $this->assertSame([(int)$one->id], array_column($this->rows($quiz, (int)$group1->id), 'userid'));
     }
 
+    /**
+     * The colours of the attempts of a quiz, as the current user.
+     *
+     * @param \stdClass $quiz The quiz.
+     * @param int $groupid Group filter.
+     * @return array Attempt id => [colour name, percentage].
+     */
+    private function attempt_colours(\stdClass $quiz, int $groupid = 0): array {
+        $cm = get_fast_modinfo($this->course)->get_cm($quiz->cmid);
+        return report::attempt_colours((int)$quiz->id, $cm, \context_module::instance($cm->id), $groupid);
+    }
+
+    public function test_attempt_colours(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $ann = $this->getDataGenerator()->create_and_enrol($this->course);
+        $bob = $this->getDataGenerator()->create_and_enrol($this->course);
+        $first = $this->attempt($quiz, $ann, $this->frogs(1, 4));
+        $second = $this->attempt($quiz, $ann, $this->frogs(4, 4));
+        $other = $this->attempt($quiz, $bob, $this->frogs(3, 4));
+
+        $this->assertEquals([
+            (int)$first->id => ['red', 25.0],
+            (int)$second->id => ['green', 100.0],
+            (int)$other->id => ['lightblue', 75.0],
+        ], $this->attempt_colours($quiz), 'Every counted attempt has its own colour, not only the one that sets the score.');
+    }
+
+    public function test_attempt_waiting_for_marking_has_no_colour(): void {
+        $quiz = $this->make_frog_quiz(1);
+        $this->add_question($quiz, 'essay', 'plain');
+        $this->enable($quiz, [0 => 0, 1 => 1]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->attempt($quiz, $student, [1 => 'frog', 2 => 'My essay']);
+
+        $this->assertSame([], $this->attempt_colours($quiz), 'The count is not final until the essay is marked.');
+    }
+
+    public function test_attempt_colours_follow_the_groups(): void {
+        global $DB;
+        $quiz = $this->make_frog_quiz(1, ['groupmode' => SEPARATEGROUPS]);
+        $this->enable($quiz, [0 => 0, 1 => 1]);
+        $group1 = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $group2 = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
+        $one = $this->getDataGenerator()->create_and_enrol($this->course);
+        $two = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group1->id, 'userid' => $teacher->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group1->id, 'userid' => $one->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group2->id, 'userid' => $two->id]);
+        $attemptone = $this->attempt($quiz, $one, $this->frogs(1, 1));
+        $attempttwo = $this->attempt($quiz, $two, $this->frogs(1, 1));
+
+        $this->assertEqualsCanonicalizing([(int)$attemptone->id, (int)$attempttwo->id], array_keys($this->attempt_colours($quiz)));
+
+        // A non-editing teacher without "access all groups" sees only their own group.
+        $role = $DB->get_field('role', 'id', ['shortname' => 'teacher']);
+        unassign_capability('moodle/site:accessallgroups', $role);
+        $this->setUser($teacher);
+        $this->assertSame([], $this->attempt_colours($quiz), 'No group chosen: nobody.');
+        $this->assertSame([(int)$attemptone->id], array_keys($this->attempt_colours($quiz, (int)$group1->id)));
+    }
+
     public function test_quiz_without_banded_grading(): void {
         $quiz = $this->make_frog_quiz(1);
         $student = $this->getDataGenerator()->create_and_enrol($this->course);

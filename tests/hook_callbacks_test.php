@@ -175,4 +175,84 @@ final class hook_callbacks_test extends \advanced_testcase {
         $colours = reset($all);
         $this->assertSame([(int)$mine->id], array_map('intval', array_keys($colours)), 'Only the teacher\'s own group.');
     }
+
+    /**
+     * Run the footer hook as if the quiz's Results page were being printed, and return the colour data it adds.
+     *
+     * @param \stdClass $quiz The quiz.
+     * @param string|null $mode The report mode in the address, or null for none.
+     * @return array Attempt id => [css class, title].
+     */
+    private function results_colours(\stdClass $quiz, ?string $mode = 'overview'): array {
+        global $PAGE;
+        $PAGE = new \moodle_page();
+        $PAGE->set_cm(get_fast_modinfo($this->course)->get_cm($quiz->cmid));
+        $PAGE->set_pagetype('mod-quiz-report');
+        $PAGE->set_url('/mod/quiz/report.php', ['id' => $quiz->cmid] + ($mode === null ? [] : ['mode' => $mode]));
+        $hook = new \core\hook\output\before_standard_footer_html_generation($PAGE->get_renderer('core'));
+        hook_callbacks::before_standard_footer_html_generation($hook);
+        if (!preg_match('/data-colours="([^"]*)"/', $hook->get_output(), $matches)) {
+            return [];
+        }
+        return json_decode(html_entity_decode($matches[1]), true);
+    }
+
+    public function test_results_reports_colour_each_attempt(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $low = $this->attempt($quiz, $student, $this->frogs(1, 4));
+        $high = $this->attempt($quiz, $student, $this->frogs(4, 4));
+
+        $colours = $this->results_colours($quiz);
+        $this->assertSame(['local_bandedgrade-red', '25% of the questions correct'], $colours[$low->id]);
+        $this->assertSame(['local_bandedgrade-green', '100% of the questions correct'], $colours[$high->id]);
+        $this->assertCount(2, $colours);
+        $this->assertCount(2, $this->results_colours($quiz, 'responses'), 'The Responses report is coloured too.');
+        $this->assertCount(2, $this->results_colours($quiz, null), 'No mode in the address means the Grades report.');
+        $this->assertSame([], $this->results_colours($quiz, 'statistics'), 'Its table does not list attempts.');
+        $this->assertSame([], $this->results_colours($quiz, 'grading'));
+    }
+
+    public function test_results_reports_need_banded_grading_and_the_report_capability(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $other = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->attempt($quiz, $student, $this->frogs(3, 4));
+        $this->attempt($other, $student, $this->frogs(3, 4));
+
+        $this->assertCount(1, $this->results_colours($quiz));
+        $this->assertSame([], $this->results_colours($other), 'Banded grading is off for this quiz.');
+        $this->setUser($student);
+        $this->assertSame([], $this->results_colours($quiz), 'No colours without mod/quiz:viewreports.');
+    }
+
+    public function test_results_reports_follow_the_quiz_groups(): void {
+        global $DB;
+        $quiz = $this->make_frog_quiz(4, ['groupmode' => SEPARATEGROUPS]);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $generator = $this->getDataGenerator();
+        $mine = $generator->create_and_enrol($this->course);
+        $other = $generator->create_and_enrol($this->course);
+        $minerow = $this->attempt($quiz, $mine, $this->frogs(3, 4));
+        $this->attempt($quiz, $other, $this->frogs(4, 4));
+        $groupa = $generator->create_group(['courseid' => $this->course->id]);
+        $groupb = $generator->create_group(['courseid' => $this->course->id]);
+        $generator->create_group_member(['groupid' => $groupa->id, 'userid' => $mine->id]);
+        $generator->create_group_member(['groupid' => $groupb->id, 'userid' => $other->id]);
+
+        // A non-editing teacher who may see the quiz reports but not every group.
+        $teacher = $generator->create_and_enrol($this->course, 'teacher');
+        $role = $DB->get_record('role', ['shortname' => 'teacher'], '*', MUST_EXIST);
+        $coursecontext = \context_course::instance($this->course->id);
+        assign_capability('mod/quiz:viewreports', CAP_ALLOW, $role->id, $coursecontext->id);
+        assign_capability('moodle/site:accessallgroups', CAP_PREVENT, $role->id, $coursecontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->setUser($teacher);
+        $this->assertSame([], $this->results_colours($quiz), 'In no group: nobody.');
+
+        $generator->create_group_member(['groupid' => $groupa->id, 'userid' => $teacher->id]);
+        $this->assertSame([(int)$minerow->id], array_map('intval', array_keys($this->results_colours($quiz))), 'Only their group.');
+    }
 }

@@ -83,8 +83,9 @@ To see **how many questions** each student got right, open the quiz and click **
 - the score in the gradebook, marked **Changed by hand** if you changed it.
 
 **Colours.** The percentage of questions answered correctly (the number correct used for the score, divided by the number
-of questions) is colour coded on the Number correct page and in the score column of the grader report. Hover over a
-coloured cell in the grader report to see the percentage.
+of questions) is colour coded on the Number correct page, in the score column of the grader report, and in the grade
+column of the quiz's own **Results** reports (**Grades** and **Responses**), where each attempt is coloured by its own
+number of correct questions. Hover over a coloured cell in the grader report or the Results reports to see the percentage.
 
 | Percentage | Colour |
 |---|---|
@@ -97,7 +98,8 @@ coloured cell in the grader report to see the percentage.
 The percentage is rounded to one decimal first, so 59.96% is shown as 60% and is yellow. The colours are the same for
 every quiz and do not depend on your bands. A student with no count yet (for example waiting for marking) is not coloured.
 
-In a quiz with separate groups, you see only the students in your groups, as in the quiz's own reports.
+In a quiz with separate groups, you see only the students in your groups, as in the quiz's own reports. Purge caches after
+upgrading so the new stylesheet loads.
 
 ### If you remove questions
 
@@ -224,6 +226,11 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.9.0** (2026-10-17): new. The grade of each attempt is colour coded in the quiz's own **Results** reports (**Grades**
+  and **Responses**), by the percentage of questions that attempt got fully right, with the same colours as the grader
+  report. Hover over a cell to see the percentage. Only people who may view the quiz reports see the colours, and in a
+  quiz with separate groups only the students in their groups. No database change; purge caches after upgrading so the
+  new stylesheet loads.
 - **0.8.3** (2026-10-17): fix. The colours in the **grader report** now show. The Boost theme paints every cell of that
   report itself and that rule was stronger than the plugin's colour, so the cells stayed white. The Number correct
   page was not affected. No database change; purge caches after upgrading so the new stylesheet loads.

@@ -60,3 +60,27 @@ span.local_bandedgrade-green {
 .path-grade-report-grader .gradeparent .cell.local_bandedgrade-green {
     background-color: #b6e3c6;
 }
+
+/*
+ * The quiz's Results reports (Grades and Responses). Bootstrap sets the background of every cell of a table with
+ * ".table > :not(caption) > * > *", which is more specific than the first rules, so repeat the colours here.
+ */
+.path-mod-quiz table.generaltable td.local_bandedgrade-red {
+    background-color: #f8c9cd;
+}
+
+.path-mod-quiz table.generaltable td.local_bandedgrade-yellow {
+    background-color: #ffe69c;
+}
+
+.path-mod-quiz table.generaltable td.local_bandedgrade-lightblue {
+    background-color: #cfeefa;
+}
+
+.path-mod-quiz table.generaltable td.local_bandedgrade-blue {
+    background-color: #9ec5fe;
+}
+
+.path-mod-quiz table.generaltable td.local_bandedgrade-green {
+    background-color: #b6e3c6;
+}

@@ -93,6 +93,48 @@ class report {
     }
 
     /**
+     * The colour of each counted attempt of a quiz, for the quiz's own Results reports (Grades and Responses).
+     *
+     * An attempt is coloured by the percentage of questions it got fully right, like the scores. Only the students the
+     * current user may see are listed, following the quiz's group mode. An attempt that still waits for a question to
+     * be marked is left out, because its count is not final.
+     *
+     * Permission checks (login, capability) are done by the report page.
+     *
+     * @param int $quizid The quiz id.
+     * @param \cm_info $cm The quiz course module.
+     * @param \context_module $context The quiz context.
+     * @param int $groupid The chosen group, or 0 for all the user may see.
+     * @return array<int, array{0: string, 1: float}> Attempt id => [colour name, percentage].
+     */
+    public static function attempt_colours(int $quizid, \cm_info $cm, \context_module $context, int $groupid): array {
+        global $DB;
+        $total = counter::question_total($quizid);
+        $allowed = self::allowed_users($cm, $context, $groupid);
+        if ($total <= 0 || $allowed === []) {
+            return [];
+        }
+        $select = 'quizid = :quizid AND pending = 0';
+        $params = ['quizid' => $quizid];
+        if ($allowed !== null) {
+            [$insql, $inparams] = $DB->get_in_or_equal($allowed, SQL_PARAMS_NAMED);
+            $select .= " AND userid $insql";
+            $params += $inparams;
+        }
+        $colours = [];
+        $rs = $DB->get_recordset_select('local_bandedgrade_attempt', $select, $params, 'attemptid', 'attemptid, correctcount');
+        foreach ($rs as $row) {
+            $percent = colour::percent((float)$row->correctcount, $total);
+            $name = colour::name($percent);
+            if ($name !== null) {
+                $colours[(int)$row->attemptid] = [$name, $percent];
+            }
+        }
+        $rs->close();
+        return $colours;
+    }
+
+    /**
      * The users the current user may see in the report, following the quiz's group mode.
      *
      * @param \cm_info $cm The quiz course module.

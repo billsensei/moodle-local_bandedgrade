@@ -33,6 +33,9 @@ class hook_callbacks {
     /** @var string[] Quiz pages that show the warning: the quiz page and the "Questions" page. */
     const WARNING_PAGES = ['mod-quiz-view', 'mod-quiz-edit'];
 
+    /** @var string[] Modes of the quiz's Results page whose tables list the attempts: Grades and Responses. */
+    const QUIZ_REPORT_MODES = ['overview', 'responses'];
+
     /**
      * Warn the people who can edit a quiz when its questions no longer reach every band.
      *
@@ -79,7 +82,14 @@ class hook_callbacks {
         \core\hook\output\before_standard_footer_html_generation $hook
     ): void {
         global $PAGE, $DB, $USER;
-        if (during_initial_install() || $PAGE->pagetype !== 'grade-report-grader-index' || !$PAGE->course) {
+        if (during_initial_install()) {
+            return;
+        }
+        if ($PAGE->pagetype === 'mod-quiz-report') {
+            self::add_quiz_report_colours($hook);
+            return;
+        }
+        if ($PAGE->pagetype !== 'grade-report-grader-index' || !$PAGE->course) {
             return;
         }
         $course = $PAGE->course;
@@ -146,5 +156,51 @@ class hook_callbacks {
             'data-colours' => json_encode($colours),
         ]));
         $PAGE->requires->js_call_amd('local_bandedgrade/gradecolours', 'init');
+    }
+
+    /**
+     * Colour the grade of each attempt in the quiz's own Results reports (Grades and Responses).
+     *
+     * Adds the colours of the attempts as JSON in a hidden element, and a small module that colours the grade cell of
+     * each row. Like the grader report, only the students the current user may see are included.
+     *
+     * @param \core\hook\output\before_standard_footer_html_generation $hook The hook.
+     */
+    private static function add_quiz_report_colours(\core\hook\output\before_standard_footer_html_generation $hook): void {
+        global $PAGE;
+        $cm = $PAGE->cm;
+        if (!$cm || $cm->modname !== 'quiz' || !$PAGE->has_set_url()) {
+            return;
+        }
+        // The Grades report is the one the page opens when no mode is given.
+        $mode = $PAGE->url->get_param('mode') ?? 'overview';
+        if (!in_array($mode, self::QUIZ_REPORT_MODES, true) || !has_capability('mod/quiz:viewreports', $cm->context)) {
+            return;
+        }
+        if (!quiz_config::get_enabled((int)$cm->instance)) {
+            return;
+        }
+        // The group the report page shows. A group the user may not use counts as "all", which shows nobody in separate
+        // groups without access to all groups.
+        $groupid = (int)groups_get_activity_group($cm);
+        if ($groupid && !array_key_exists($groupid, groups_get_activity_allowed_groups($cm))) {
+            $groupid = 0;
+        }
+        $colours = [];
+        foreach (report::attempt_colours((int)$cm->instance, $cm, $cm->context, $groupid) as $attemptid => [$name, $percent]) {
+            $colours[$attemptid] = [
+                colour::css_class($name),
+                get_string('gradecolourtitle', 'local_bandedgrade', format_float($percent, 1, true, true)),
+            ];
+        }
+        if (!$colours) {
+            return;
+        }
+        $hook->add_html(\html_writer::div('', '', [
+            'id' => 'local_bandedgrade-attempt-colours',
+            'hidden' => 'hidden',
+            'data-colours' => json_encode($colours),
+        ]));
+        $PAGE->requires->js_call_amd('local_bandedgrade/attemptcolours', 'init');
     }
 }
