@@ -171,7 +171,7 @@ no longer want it), and the quiz's own grade counts again.
 
 ### Install
 
-- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload `local_bandedgrade_0.7.1.zip`, and follow the steps.
+- **ZIP upload:** *Site administration → Plugins → Install plugins*, upload the `local_bandedgrade_<version>.zip` file from the latest release, and follow the steps.
 - **Manual copy:** unzip into `local/bandedgrade` under your Moodle folder (on Moodle 5.1 or later, `public/local/bandedgrade`), then run
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
