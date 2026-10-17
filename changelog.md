@@ -5,7 +5,7 @@ See also the [releases on GitHub](https://github.com/billsensei/moodle-local_ban
 
 ## 0.9.4, 2026-10-17
 
-- Fix. Restoring a backup file that was edited by hand and lacks some of the plugin's settings (bands, enabled, weight, score column) no longer gives PHP warnings. Without bands the quiz is restored with banded grading off. No database change. New file `CHANGES.md` lists what changed in each version.
+- Fix. Restoring a backup file that was edited by hand and lacks some of the plugin's settings (bands, enabled, weight, score column) no longer gives PHP warnings. Without bands the quiz is restored with banded grading off. No database change. New files: `CHANGES.md` lists what changed in the latest version and `changelog.md` lists what changed in every version.
 
 ## 0.9.3, 2026-10-17
 
