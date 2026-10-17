@@ -226,6 +226,8 @@ Moodle 5.0, 5.1 and 5.2, PHP 8.2 or later (5.2 needs PHP 8.3). Automated tests r
 
 ### Changelog
 
+- **0.9.1** (2026-10-17): fix. The light blue band (70% to 79.9%) is a little darker, so it still shows on the pale blue
+  rows of the quiz's **Results** reports. Purge caches after upgrading so the new stylesheet loads.
 - **0.9.0** (2026-10-17): new. The grade of each attempt is colour coded in the quiz's own **Results** reports (**Grades**
   and **Responses**), by the percentage of questions that attempt got fully right, with the same colours as the grader
   report. Hover over a cell to see the percentage. Only people who may view the quiz reports see the colours, and in a
