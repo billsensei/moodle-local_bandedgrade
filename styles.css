@@ -36,3 +36,27 @@ span.local_bandedgrade-green {
     padding: 0 0.5rem;
     border-radius: 0.25rem;
 }
+
+/*
+ * The grader report. Boost sets the background of its cells with ".path-grade-report-grader .gradeparent tr .cell",
+ * which is more specific than the rules above, so the colour has to be repeated with a selector that is more specific.
+ */
+.path-grade-report-grader .gradeparent .cell.local_bandedgrade-red {
+    background-color: #f8c9cd;
+}
+
+.path-grade-report-grader .gradeparent .cell.local_bandedgrade-yellow {
+    background-color: #ffe69c;
+}
+
+.path-grade-report-grader .gradeparent .cell.local_bandedgrade-lightblue {
+    background-color: #cfeefa;
+}
+
+.path-grade-report-grader .gradeparent .cell.local_bandedgrade-blue {
+    background-color: #9ec5fe;
+}
+
+.path-grade-report-grader .gradeparent .cell.local_bandedgrade-green {
+    background-color: #b6e3c6;
+}
