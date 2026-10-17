@@ -76,14 +76,11 @@ Feature: Colour codes for the percentage of questions answered correctly
     And ".local_bandedgrade-green" "css_element" should exist in the "Student Two" "table_row"
 
   Scenario: The Grades report of the quiz colours the grade of each attempt
-    When I am on the "Quiz 1" "quiz activity" page
-    And I navigate to "Results" in current page administration
+    When I am on the "Quiz 1" "mod_quiz > Grades report" page
     Then ".local_bandedgrade-lightblue" "css_element" should exist in the "Student One" "table_row"
     And ".local_bandedgrade-green" "css_element" should exist in the "Student Two" "table_row"
 
   Scenario: The Responses report of the quiz colours the grade of each attempt
-    When I am on the "Quiz 1" "quiz activity" page
-    And I navigate to "Results" in current page administration
-    And I select "Responses" from the "jump" singleselect
+    When I am on the "Quiz 1" "mod_quiz > Responses report" page
     Then ".local_bandedgrade-lightblue" "css_element" should exist in the "Student One" "table_row"
     And ".local_bandedgrade-green" "css_element" should exist in the "Student Two" "table_row"
