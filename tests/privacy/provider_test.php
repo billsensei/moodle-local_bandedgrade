@@ -74,9 +74,38 @@ final class provider_test extends provider_testcase {
         return $counts;
     }
 
+    /**
+     * The metadata names both user tables with every column that points at a student, and the gradebook link.
+     * Each column is a real column of its table, and each description is a defined language string.
+     */
     public function test_metadata(): void {
+        global $DB;
         $collection = provider::get_metadata(new \core_privacy\local\metadata\collection('local_bandedgrade'));
-        $this->assertCount(3, $collection->get_collection());
+        $items = [];
+        foreach ($collection->get_collection() as $item) {
+            $items[$item->get_name()] = $item;
+        }
+        $this->assertEqualsCanonicalizing(
+            ['local_bandedgrade_attempt', 'local_bandedgrade_written', 'core_grades'],
+            array_keys($items)
+        );
+
+        $expected = [
+            'local_bandedgrade_attempt' => ['attemptid', 'userid', 'correctcount', 'missedrequired', 'pending', 'timemodified'],
+            'local_bandedgrade_written' => ['userid', 'score', 'timemodified'],
+        ];
+        $strings = get_string_manager();
+        foreach ($expected as $table => $fields) {
+            $declared = $items[$table]->get_privacy_fields();
+            $this->assertEqualsCanonicalizing($fields, array_keys($declared), $table);
+            $columns = $DB->get_columns($table);
+            foreach ($declared as $field => $stringkey) {
+                $this->assertArrayHasKey($field, $columns, "$table.$field is not a column");
+                $this->assertTrue($strings->string_exists($stringkey, 'local_bandedgrade'), $stringkey);
+            }
+            $this->assertTrue($strings->string_exists($items[$table]->get_summary(), 'local_bandedgrade'));
+        }
+        $this->assertTrue($strings->string_exists($items['core_grades']->get_summary(), 'local_bandedgrade'));
     }
 
     public function test_contexts_and_users(): void {
