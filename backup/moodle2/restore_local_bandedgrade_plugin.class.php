@@ -87,7 +87,7 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
         }
 
         // A backup file can be edited: check the bands with the form's rules, and leave it off if they fail.
-        $bands = bands::decode($this->config->bands);
+        $bands = bands::decode($this->config->bands ?? null);
         $ruletype = bands::is_ruletype((string)($this->config->ruletype ?? '')) ? $this->config->ruletype : bands::TYPE_COUNT;
         // A scale: the restore maps course scales to the new ones; a site scale keeps its id. Without a usable scale
         // the scores stay as plain numbers (positions) so that nothing is lost.
@@ -112,9 +112,9 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
         $config = quiz_config::save(
             $quizid,
             (int)$quiz->course,
-            $valid && (bool)$this->config->enabled,
+            $valid && !empty($this->config->enabled),
             $valid ? $bands : [],
-            (bool)$this->config->zeroweight,
+            !empty($this->config->zeroweight),
             $ruletype,
             $scheme,
             $required,
@@ -124,7 +124,7 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
         // The score column comes back only in a full course restore. In a same-course restore (duplicate, import
         // into the same course) core maps the course's existing grade items to themselves, so a mapping to the old id
         // is the original quiz's column, which must not be shared.
-        $olditemid = (int)$this->config->gradeitemid;
+        $olditemid = (int)($this->config->gradeitemid ?? 0);
         $itemid = $olditemid ? (int)$this->get_mappingid('grade_item', $olditemid) : 0;
         if (
             $itemid && ($itemid === $olditemid || $DB->record_exists(quiz_config::TABLE, ['gradeitemid' => $itemid])
@@ -137,13 +137,13 @@ class restore_local_bandedgrade_plugin extends restore_local_plugin {
             $config->gradeitemid = $itemid;
             // Last written scores only make sense next to the restored grades.
             foreach ($this->writtens as $written) {
-                $userid = $this->get_mappingid('user', $written->userid);
-                $score = $written->score === null ? null : (float)$written->score;
+                $userid = isset($written->userid) ? $this->get_mappingid('user', $written->userid) : 0;
+                $score = ($written->score ?? null) === null ? null : (float)$written->score;
                 if (!$userid || ($score !== null && ($score < 0 || $score > bands::MAX_SCORE))) {
                     continue;
                 }
                 $DB->insert_record('local_bandedgrade_written', (object)['quizid' => $quizid, 'userid' => $userid,
-                    'score' => $score, 'timemodified' => (int)$written->timemodified]);
+                    'score' => $score, 'timemodified' => (int)($written->timemodified ?? 0)]);
             }
         }
 

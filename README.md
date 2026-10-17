@@ -217,7 +217,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.9.3 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.9.4 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility
@@ -226,56 +226,4 @@ Moodle 5.0, 5.1, 5.2 and 5.3, PHP 8.2 or later (5.2 and 5.3 need PHP 8.3). Autom
 
 ### Changelog
 
-- **0.9.3** (2026-10-17): fix. When the quiz's score column is hidden in the gradebook, the **Number correct** report
-  leaves out the "Score in the gradebook" column for teachers who may not see hidden grades (as the colours in the
-  grader report already did).
-- **0.9.2** (2026-10-17): now supports Moodle 5.3 (tested with automated checks on 5.0, 5.1, 5.2 and 5.3). No change
-  to how the plugin works.
-- **0.9.1** (2026-10-17): fix. The light blue band (70% to 79.9%) is a little darker, so it still shows on the pale blue
-  rows of the quiz's **Results** reports. Purge caches after upgrading so the new stylesheet loads.
-- **0.9.0** (2026-10-17): new. The grade of each attempt is colour coded in the quiz's own **Results** reports (**Grades**
-  and **Responses**), by the percentage of questions that attempt got fully right, with the same colours as the grader
-  report. Hover over a cell to see the percentage. Only people who may view the quiz reports see the colours, and in a
-  quiz with separate groups only the students in their groups. No database change; purge caches after upgrading so the
-  new stylesheet loads.
-- **0.8.3** (2026-10-17): fix. The colours in the **grader report** now show. The Boost theme paints every cell of that
-  report itself and that rule was stronger than the plugin's colour, so the cells stayed white. The Number correct
-  page was not affected. No database change; purge caches after upgrading so the new stylesheet loads.
-- **0.8.2** (2026-10-16): security fix. In a course set to separate groups, the grader-report colours no longer
-  include students from groups the teacher cannot access, even when the quiz itself has no groups. Upgrade from 0.8.0
-  and 0.8.1 is recommended. No database change.
-- **0.8.1** (2026-10-16): the colours in the grader report are shown only to people who may view the quiz's reports
-  (`mod/quiz:viewreports`). Recalculating a very large quiz now works through the students in groups of 200, so it
-  uses less memory. No database change.
-- **0.8.0** (2026-10-15): scores are **colour coded** by the percentage of questions answered correctly (red below 60%,
-  yellow 60%, light blue 70%, blue 80%, green 90% and up), on the Number correct page and in the grader report. No
-  database change; purge caches after upgrading so the new stylesheet loads.
-- **0.7.1** (2026-10-09): adds the `LICENSE` file (GNU GPL v3). No change to how the plugin works.
-- **0.7.0** (2026-10-09): give scores as the words of a **gradebook scale** (for example Fail / Pass / Merit) instead
-  of numbers. Works with bands and pass/fail. Needs a database upgrade (one new setting per quiz); quizzes that
-  already use the plugin are not changed.
-- **0.6.0** (2026-10-09): choose **questions that must be correct**: a student who misses one gets the lowest score.
-  Works with bands, percentages and pass/fail. Needs a database upgrade (one new setting per quiz and one per counted
-  attempt); quizzes that already use the plugin are not changed.
-- **0.5.1** (2026-10-09): the plugin is now marked stable. No change to how it works.
-- **0.5.0** (2026-10-09): new **Pass or fail (one pass mark)** way to give scores: type the pass mark and the two
-  scores. It sets the gradebook column's grade to pass. Needs a database upgrade (one new setting per quiz); quizzes
-  that already use bands are not changed.
-- **0.4.1** (2026-10-08): now supports Moodle 5.1 and 5.2 (tested with automated checks on 5.0, 5.1 and 5.2). No change
-  to how the plugin works.
-- **0.4.0** (2026-10-08): bands can start at a percentage of correct questions instead of a number. Two new ready-made
-  sets by percentage. Administrators write a percentage set by putting % after each band start
-  (`Name | 0%=0, 50%=1`). The Number correct page also shows the percentage.
-- **0.3.0** (2026-10-08): administrators can add their own sets of bands, and turn off the ready-made ones. New
-  **Number correct** page for each quiz. A warning on the quiz page when the quiz has too few questions to reach a band.
-- **0.2.1** (2026-10-08): hardening. The score column is hidden whenever the quiz grade is hidden (quiz hidden, or marks
-  not yet reviewable). Changing the settings needs gradebook rights. The Recalculate page lists only students the teacher
-  can see, and "replace" changes only the students it listed. Limits on scores and band numbers. A score cleared by hand
-  is kept. Two rescores of one quiz no longer run at the same time. Course reset: resetting attempts blanks the scores,
-  resetting gradebook items makes a new column right away with the weight applied again. Uninstall removes the columns
-  and restores the quiz weights.
-- **0.2.0** (2026-10-08): settings are included in backups, course copies, imports and duplicated quizzes.
-  Fix: two quizzes with the same name in one course shared one score column; each now gets its own.
-- **0.1.0** (2026-10-08): first release. Bands set in quiz settings with presets and a live preview; scores follow the quiz's
-  grading method; changes made by hand are kept; Recalculate page; privacy support.
-# moodle-local_bandedgrade
+See [CHANGES.md](CHANGES.md) for what changed in each version, newest first.

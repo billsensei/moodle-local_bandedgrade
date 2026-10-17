@@ -319,6 +319,67 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertCount(1, $this->score_items($this->course->id), 'The original column is untouched.');
     }
 
+    public function test_restore_of_an_edited_backup_without_settings_gives_no_warnings(): void {
+        global $CFG, $USER;
+        $quiz = $this->make_frog_quiz(2);
+        $this->enable($quiz, [0 => 0, 2 => 5]);
+        $othercourse = $this->getDataGenerator()->create_course();
+
+        $bc = new backup_controller(
+            backup::TYPE_1ACTIVITY,
+            $quiz->cmid,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_IMPORT,
+            $USER->id
+        );
+        $backupid = $bc->get_backupid();
+        $bc->execute_plan();
+        $bc->destroy();
+
+        // A backup file can be edited by hand: take the settings out of it.
+        $edited = 0;
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($CFG->tempdir . '/backup/' . $backupid));
+        foreach ($files as $file) {
+            if ($file->isFile() && $file->getExtension() === 'xml') {
+                $xml = file_get_contents($file->getPathname());
+                $stripped = preg_replace('~<(enabled|bands|zeroweight|gradeitemid)>.*?</\1>~s', '', $xml);
+                if ($stripped !== $xml) {
+                    file_put_contents($file->getPathname(), $stripped);
+                    $edited++;
+                }
+            }
+        }
+        $this->assertGreaterThan(0, $edited, 'The backup holds our settings.');
+
+        $warnings = [];
+        set_error_handler(function (int $errno, string $errstr) use (&$warnings): bool {
+            $warnings[] = $errstr;
+            return true;
+        }, E_WARNING | E_NOTICE | E_DEPRECATED);
+        try {
+            $rc = new restore_controller(
+                $backupid,
+                $othercourse->id,
+                backup::INTERACTIVE_NO,
+                backup::MODE_IMPORT,
+                $USER->id,
+                backup::TARGET_CURRENT_ADDING
+            );
+            $rc->execute_precheck();
+            $rc->execute_plan();
+            $rc->destroy();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $warnings);
+        $copy = $this->only_quiz($othercourse->id);
+        $config = quiz_config::get($copy->id);
+        $this->assertFalse((bool)$config->enabled, 'Without usable bands the copy is left off.');
+        $this->assertEmpty($config->gradeitemid, 'Without the old column id nothing is linked to the copy.');
+    }
+
     public function test_restore_into_course_with_grade_categories(): void {
         global $CFG, $DB, $USER;
         [$quiz, $one, $two] = $this->quiz_with_two_scores();
