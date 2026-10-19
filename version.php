@@ -25,9 +25,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_bandedgrade';
-$plugin->version = 2026101706;
+$plugin->version = 2026101901;
 $plugin->requires = 2025041400; // Moodle 5.0.
 $plugin->supported = [500, 503]; // Tested on Moodle 5.0, 5.1, 5.2 and 5.3 (range: first and last supported branch).
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '0.9.4';
+$plugin->release = '0.9.5';
 $plugin->dependencies = ['mod_quiz' => 2025041400];

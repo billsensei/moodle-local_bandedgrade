@@ -176,6 +176,18 @@ no longer want it), and the quiz's own grade counts again.
   `php admin/cli/upgrade.php`. The output should end with
   `Command line upgrade from ... completed successfully.`
 
+- **Composer:** `composer require billsensei/moodle-local_bandedgrade` (type `moodle-local`). `composer/installers` puts the plugin in `local/bandedgrade`, which is right for Moodle 5.0. On Moodle 5.1 or later (web root `public/`) set the path yourself in the site's `composer.json` before running `composer require`:
+
+  ```json
+  {
+      "extra": {
+          "installer-paths": {
+              "public/local/bandedgrade": ["billsensei/moodle-local_bandedgrade"]
+          }
+      }
+  }
+  ```
+
 Moodle's cron must be running. The Recalculate page and changes to bands or questions use a background task.
 
 ### Your school's own bands
@@ -217,7 +229,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.9.4 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.9.5 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility

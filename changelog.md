@@ -3,6 +3,10 @@
 All notable changes to `local_bandedgrade`, newest first. Add an entry here with every new version. `CHANGES.md` holds only the latest version.
 See also the [releases on GitHub](https://github.com/billsensei/moodle-local_bandedgrade/releases).
 
+## 0.9.5, 2026-10-19
+
+- Added `composer.json` (package `billsensei/moodle-local_bandedgrade`, type `moodle-local`) so the plugin can be installed with Composer, and a README note on it, including the `public/` path needed on Moodle 5.1 and later. No code changes.
+
 ## 0.9.4, 2026-10-17
 
 - Fix. Restoring a backup file that was edited by hand and lacks some of the plugin's settings (bands, enabled, weight, score column) no longer gives PHP warnings. Without bands the quiz is restored with banded grading off. No database change. New files: `CHANGES.md` lists what changed in the latest version and `changelog.md` lists what changed in every version.

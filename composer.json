@@ -1,0 +1,18 @@
+{
+    "name": "billsensei/moodle-local_bandedgrade",
+    "description": "Moodle plugin that scores a quiz by the number of fully correct questions, mapped through teacher-defined bands, and writes the score to its own gradebook item.",
+    "type": "moodle-local",
+    "license": "GPL-3.0-or-later",
+    "homepage": "https://github.com/billsensei/moodle-local_bandedgrade",
+    "support": {
+        "issues": "https://github.com/billsensei/moodle-local_bandedgrade/issues",
+        "source": "https://github.com/billsensei/moodle-local_bandedgrade"
+    },
+    "require": {
+        "php": ">=8.2",
+        "composer/installers": "^1.0 || ^2.0"
+    },
+    "extra": {
+        "installer-name": "bandedgrade"
+    }
+}
