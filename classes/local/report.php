@@ -118,10 +118,14 @@ class report {
      * @param \cm_info $cm The quiz course module.
      * @param \context_module $context The quiz context.
      * @param int $groupid The chosen group, or 0 for all the user may see.
-     * @return array<int, array{0: string, 1: float}> Attempt id => [colour name, percentage].
+     * @return array<int, array> Attempt id => [css class, inline style or null, percentage], as from colour::cell().
      */
     public static function attempt_colours(int $quizid, \cm_info $cm, \context_module $context, int $groupid): array {
         global $DB;
+        $config = quiz_config::get_enabled($quizid);
+        if (!$config) {
+            return [];
+        }
         $total = counter::question_total($quizid);
         $allowed = self::allowed_users($cm, $context, $groupid);
         if ($total <= 0 || $allowed === []) {
@@ -137,10 +141,9 @@ class report {
         $colours = [];
         $rs = $DB->get_recordset_select('local_bandedgrade_attempt', $select, $params, 'attemptid', 'attemptid, correctcount');
         foreach ($rs as $row) {
-            $percent = colour::percent((float)$row->correctcount, $total);
-            $name = colour::name($percent);
-            if ($name !== null) {
-                $colours[(int)$row->attemptid] = [$name, $percent];
+            $cell = colour::cell($config, (float)$row->correctcount, $total);
+            if ($cell !== null) {
+                $colours[(int)$row->attemptid] = $cell;
             }
         }
         $rs->close();

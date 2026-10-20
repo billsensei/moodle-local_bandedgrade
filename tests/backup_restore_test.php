@@ -212,6 +212,22 @@ final class backup_restore_test extends \advanced_testcase {
         ), 'No scores without student data.');
     }
 
+    public function test_course_copy_keeps_the_band_colours(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        quiz_config::save((int)$quiz->id, (int)$this->course->id, true, [
+            ['from' => 0, 'score' => 0, 'colour' => '#ff0000'],
+            ['from' => 2, 'score' => 1],
+            ['from' => 4, 'score' => 2, 'colour' => '#0b3d91'],
+        ], true);
+
+        $newcourseid = $this->copy_course(false);
+
+        $config = quiz_config::get($this->only_quiz($newcourseid)->id);
+        $this->assertEquals(1, $config->enabled);
+        $this->assertSame(['#ff0000', null, '#0b3d91'], array_map(fn($band) => $band['colour'] ?? null, $config->bands));
+    }
+
     public function test_course_copy_keeps_the_pass_fail_scheme(): void {
         $quiz = $this->make_frog_quiz(4);
         $this->enable_passfail($quiz, '3', '5', '1');

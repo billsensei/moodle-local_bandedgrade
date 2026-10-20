@@ -137,12 +137,12 @@ class hook_callbacks {
                 if ($visible !== null && !isset($visible[$userrow->userid])) {
                     continue;
                 }
-                $percent = colour::percent($userrow->used, $total);
-                $name = colour::name($percent);
-                if ($name !== null) {
+                $cell = colour::cell($config, $userrow->used, $total);
+                if ($cell !== null) {
                     $colours[$item->id][$userrow->userid] = [
-                        colour::css_class($name),
-                        get_string('gradecolourtitle', 'local_bandedgrade', format_float($percent, 1, true, true)),
+                        $cell[0],
+                        get_string('gradecolourtitle', 'local_bandedgrade', format_float($cell[2], 1, true, true)),
+                        $cell[1],
                     ];
                 }
             }
@@ -187,10 +187,11 @@ class hook_callbacks {
             $groupid = 0;
         }
         $colours = [];
-        foreach (report::attempt_colours((int)$cm->instance, $cm, $cm->context, $groupid) as $attemptid => [$name, $percent]) {
+        foreach (report::attempt_colours((int)$cm->instance, $cm, $cm->context, $groupid) as $attemptid => $cell) {
             $colours[$attemptid] = [
-                colour::css_class($name),
-                get_string('gradecolourtitle', 'local_bandedgrade', format_float($percent, 1, true, true)),
+                $cell[0],
+                get_string('gradecolourtitle', 'local_bandedgrade', format_float($cell[2], 1, true, true)),
+                $cell[1],
             ];
         }
         if (!$colours) {

@@ -95,8 +95,14 @@ number of correct questions. Hover over a coloured cell in the grader report or 
 | 80% to 89.9% | Blue |
 | 90% to 100% | Green |
 
-The percentage is rounded to one decimal first, so 59.96% is shown as 60% and is yellow. The colours are the same for
-every quiz and do not depend on your bands. A student with no count yet (for example waiting for marking) is not coloured.
+The percentage is rounded to one decimal first, so 59.96% is shown as 60% and is yellow. By default the colours are the
+same for every quiz and do not depend on your bands. A student with no count yet (for example waiting for marking) is not
+coloured.
+
+**Your own colours.** To colour by band instead, tick **Choose the report colours myself** in the quiz settings and pick a
+colour next to each band (with the pass/fail scheme, one for a fail and one for a pass). Each grade then gets the colour of
+the band it falls in, in the same three places, and the Number correct page lists the band colours. The text turns white on a
+dark colour so it stays readable. Untick the box to go back to the percentage colours.
 
 In a quiz with separate groups, you see only the students in your groups, as in the quiz's own reports. Purge caches after
 upgrading so the new stylesheet loads.
@@ -229,7 +235,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.9.5 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.10.0 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility

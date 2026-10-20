@@ -23,6 +23,7 @@
  */
 
 use local_bandedgrade\event\report_viewed;
+use local_bandedgrade\local\bands;
 use local_bandedgrade\local\colour;
 use local_bandedgrade\local\counter;
 use local_bandedgrade\local\gradebook;
@@ -104,14 +105,17 @@ foreach ($rows as $row) {
     if ($row->byhand) {
         $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge bg-info text-dark');
     }
-    $percentvalue = colour::percent($row->used, $total);
-    $colourname = colour::name($percentvalue);
-    $percentcell = $colourname === null ? '-' : html_writer::span(
-        get_string('percentvalue', 'local_bandedgrade', format_float($percentvalue, 1, true, true)),
-        colour::css_class($colourname)
-    );
-    if ($colourname !== null) {
-        $score = html_writer::span($score, colour::css_class($colourname));
+    $cell = colour::cell($config, $row->used, $total);
+    $percentcell = '-';
+    if ($cell !== null) {
+        [$cssclass, $style, $percentvalue] = $cell;
+        $attributes = $style === null ? [] : ['style' => $style];
+        $percentcell = html_writer::span(
+            get_string('percentvalue', 'local_bandedgrade', format_float($percentvalue, 1, true, true)),
+            $cssclass,
+            $attributes
+        );
+        $score = html_writer::span($score, $cssclass, $attributes);
     }
     $cells = [
         html_writer::link(new moodle_url('/user/view.php', ['id' => $row->userid, 'course' => $course->id]), s($row->name)),
@@ -126,8 +130,30 @@ foreach ($rows as $row) {
     $table->data[] = $cells;
 }
 echo html_writer::table($table);
-echo html_writer::tag('p', get_string('reportcolourkey', 'local_bandedgrade') . ' ' . implode(' ', array_map(
-    fn($name) => html_writer::span(get_string('colour_' . $name, 'local_bandedgrade'), colour::css_class($name)),
-    colour::NAMES
-)), ['class' => 'small']);
+if (bands::has_colours($config->bands)) {
+    $key = [];
+    foreach ($config->bands as $band) {
+        if (isset($band['colour'])) {
+            $key[] = html_writer::span(
+                get_string(
+                    $config->ruletype === bands::TYPE_PERCENT ? 'colourkeypercent' : 'colourkeycount',
+                    'local_bandedgrade',
+                    format_float($band['from'], 2, true, true)
+                ),
+                'local_bandedgrade-custom',
+                ['style' => colour::style($band['colour'])]
+            );
+        }
+    }
+    echo html_writer::tag(
+        'p',
+        get_string('reportcolourkeybands', 'local_bandedgrade') . ' ' . implode(' ', $key),
+        ['class' => 'small']
+    );
+} else {
+    echo html_writer::tag('p', get_string('reportcolourkey', 'local_bandedgrade') . ' ' . implode(' ', array_map(
+        fn($name) => html_writer::span(get_string('colour_' . $name, 'local_bandedgrade'), colour::css_class($name)),
+        colour::NAMES
+    )), ['class' => 'small']);
+}
 echo $OUTPUT->footer();

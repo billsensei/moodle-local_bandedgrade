@@ -3,6 +3,10 @@
 All notable changes to `local_bandedgrade`, newest first. Add an entry here with every new version. `CHANGES.md` holds only the latest version.
 See also the [releases on GitHub](https://github.com/billsensei/moodle-local_bandedgrade/releases).
 
+## 0.10.0, 2026-10-20
+
+- New. The teacher can choose the colour of each band. In the quiz settings, tick **Choose the report colours myself** and pick a colour next to each band (or a colour for a pass and for a fail in the pass/fail scheme). A student's grade is then coloured with the colour of the band it falls in, on the Number correct page, in the grader report and in the quiz's Grades and Responses reports. The text colour (dark or white) is chosen so it stays readable, and the Number correct page lists the band colours instead of the percentage colours. Quizzes that do not tick the box keep the percentage colours as before. The colours are stored with the bands, so there is no database change and backup and restore keep them. The colour boxes start from a red-to-green suggestion.
+
 ## 0.9.5, 2026-10-19
 
 - Added `composer.json` (package `billsensei/moodle-local_bandedgrade`, type `moodle-local`) so the plugin can be installed with Composer, and a README note on it, including the `public/` path needed on Moodle 5.1 and later. No code changes.

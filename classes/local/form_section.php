@@ -171,7 +171,16 @@ class form_section {
         $mform->setDefault('bandedgrade_pf_mark', $passfail ? $passfail[0] : 6);
         $mform->setDefault('bandedgrade_pf_pass', self::score_text($passfail ? $passfail[1] : 1, $scaleitems));
         $mform->setDefault('bandedgrade_pf_fail', self::score_text($passfail ? $passfail[2] : 0, $scaleitems));
-        foreach (['ruletype', 'mark', 'pass', 'fail'] as $name) {
+        foreach (['fail', 'pass'] as $i => $name) {
+            $mform->addElement(
+                self::colour_element($mform, "bandedgrade_pf_{$name}colour", get_string("{$name}colour", 'local_bandedgrade'))
+            );
+            $mform->setType("bandedgrade_pf_{$name}colour", PARAM_RAW_TRIMMED);
+            $mform->setDefault("bandedgrade_pf_{$name}colour", $passfail
+                ? ($current[$i]['colour'] ?? colour::suggested($i, 2)) : colour::suggested($i, 2));
+            $mform->hideIf("bandedgrade_pf_{$name}colour", 'bandedgrade_usecolours');
+        }
+        foreach (['ruletype', 'mark', 'pass', 'fail', 'failcolour', 'passcolour'] as $name) {
             $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_enabled');
             $mform->hideIf("bandedgrade_pf_$name", 'bandedgrade_scheme', 'neq', bands::SCHEME_PASSFAIL);
         }
@@ -194,6 +203,12 @@ class form_section {
             $mform->hideIf('bandedgrade_required', 'bandedgrade_enabled');
         }
 
+        $mform->addElement('advcheckbox', 'bandedgrade_usecolours', get_string('usecolours', 'local_bandedgrade'));
+        $mform->addHelpButton('bandedgrade_usecolours', 'usecolours', 'local_bandedgrade');
+        $mform->setDefault('bandedgrade_usecolours', bands::has_colours($current) ? 1 : 0);
+        $mform->hideIf('bandedgrade_usecolours', 'bandedgrade_enabled');
+
+        $count = count($current);
         for ($i = 0; $i < bands::MAX_ROWS; $i++) {
             $row = [
                 $mform->createElement(
@@ -217,17 +232,23 @@ class form_section {
                     get_string('scorelabel', 'local_bandedgrade', $i + 1),
                     ['size' => 4, 'inputmode' => 'decimal', 'class' => 'local-bandedgrade-score']
                 ),
+                self::colour_element($mform, "bandedgrade_colour[$i]", get_string('colourlabel', 'local_bandedgrade', $i + 1)),
             ];
             $mform->addGroup($row, "bandedgrade_row$i", get_string('bandrow', 'local_bandedgrade', $i + 1), ' ', false);
             $mform->setType("bandedgrade_from[$i]", PARAM_RAW_TRIMMED);
             $mform->setType("bandedgrade_score[$i]", PARAM_RAW_TRIMMED);
+            $mform->setType("bandedgrade_colour[$i]", PARAM_RAW_TRIMMED);
             if (isset($current[$i])) {
                 $mform->setDefault("bandedgrade_from[$i]", $current[$i]['from']);
                 $mform->setDefault("bandedgrade_score[$i]", self::score_text($current[$i]['score'], $scaleitems));
             }
+            $mform->setDefault("bandedgrade_colour[$i]", $current[$i]['colour'] ?? colour::suggested($i, max($count, 2)));
             $mform->hideIf("bandedgrade_row$i", 'bandedgrade_enabled');
             $mform->hideIf("bandedgrade_row$i", 'bandedgrade_scheme', 'eq', bands::SCHEME_PASSFAIL);
-            $mform->disabledIf("bandedgrade_row$i", 'bandedgrade_preset', 'neq', '');
+            // The colour box in the row is hidden by amd/src/form.js: hideIf() on a box inside a group hides the whole row.
+            // A preset fixes the numbers, not the colours, so only the two boxes are disabled (not the whole row).
+            $mform->disabledIf("bandedgrade_from[$i]", 'bandedgrade_preset', 'neq', '');
+            $mform->disabledIf("bandedgrade_score[$i]", 'bandedgrade_preset', 'neq', '');
         }
 
         // The script reads its settings from a data attribute: they are too long for js_call_amd() arguments.
@@ -239,6 +260,7 @@ class form_section {
             'presets' => $presetdata,
             'total' => $total,
             'rows' => bands::MAX_ROWS,
+            'suggested' => colour::SUGGESTED,
             'passfail' => bands::SCHEME_PASSFAIL,
             'scales' => array_map(fn($scale) => $scale['items'], $scales),
             'strings' => self::preview_strings() + [
@@ -383,6 +405,20 @@ class form_section {
     }
 
     /**
+     * A colour picker box (the browser's own colour chooser).
+     *
+     * @param \MoodleQuickForm $mform The form.
+     * @param string $name Element name.
+     * @param string $label Label.
+     * @return \HTML_QuickForm_text The element.
+     */
+    private static function colour_element(\MoodleQuickForm $mform, string $name, string $label) {
+        $element = $mform->createElement('text', $name, $label, ['class' => 'local-bandedgrade-colour']);
+        $element->setType('color'); // The element's own type attribute (not the form's PARAM type).
+        return $element;
+    }
+
+    /**
      * The questions a teacher can make required: the quiz's counted slots, as slot id => "number. name".
      *
      * @param int $quizid The quiz id.
@@ -419,6 +455,8 @@ class form_section {
      */
     private static function bands_from_data(array $data, int $courseid): array {
         $scaleid = (int)($data['bandedgrade_scale'] ?? 0) ?: null;
+        $usecolours = !empty($data['bandedgrade_usecolours']);
+        $colours = $usecolours ? (array)($data['bandedgrade_colour'] ?? []) : [];
         $scaleitems = null;
         if ($scaleid) {
             $scaleitems = gradebook::scale_items($scaleid, $courseid);
@@ -437,6 +475,12 @@ class form_section {
                 $ruletype,
                 $scaleitems
             );
+            if ($usecolours) {
+                $bands = bands::with_colours($bands, [
+                    $data['bandedgrade_pf_failcolour'] ?? null,
+                    $data['bandedgrade_pf_passcolour'] ?? null,
+                ]);
+            }
             return [$bands, $errors, $ruletype, bands::SCHEME_PASSFAIL, $scaleid];
         }
         $presets = bands::presets();
@@ -447,7 +491,11 @@ class form_section {
                 return [[], ['preset' => get_string('error_scalepreset', 'local_bandedgrade')], bands::TYPE_COUNT,
                     bands::SCHEME_BANDS, $scaleid];
             }
-            return [bands::normalise($presets[$preset]), [], bands::preset_ruletype($preset), bands::SCHEME_BANDS, null];
+            $presetbands = bands::normalise($presets[$preset]);
+            if ($usecolours) {
+                $presetbands = bands::with_colours($presetbands, $colours);
+            }
+            return [$presetbands, [], bands::preset_ruletype($preset), bands::SCHEME_BANDS, null];
         }
         $ruletype = (string)($data['bandedgrade_ruletype'] ?? '');
         $ruletype = bands::is_ruletype($ruletype) ? $ruletype : bands::TYPE_COUNT;
@@ -455,7 +503,8 @@ class form_section {
             (array)($data['bandedgrade_from'] ?? []),
             (array)($data['bandedgrade_score'] ?? []),
             $ruletype,
-            $scaleitems
+            $scaleitems,
+            $colours
         );
         return [$bands, $errors, $ruletype, bands::SCHEME_BANDS, $scaleid];
     }
@@ -561,6 +610,13 @@ class form_section {
                 $items[] = get_string('previewopen', 'local_bandedgrade', $a);
             } else {
                 $items[] = get_string($a->to == $a->from ? 'previewsingle' : 'previewrange', 'local_bandedgrade', $a);
+            }
+        }
+        // A band with a colour shows a swatch of it before the text (amd/src/form.js does the same while typing).
+        foreach ($bands as $i => $band) {
+            if (isset($band['colour'])) {
+                $items[$i] = \html_writer::span('', 'local-bandedgrade-swatch d-inline-block me-1 border', ['style' =>
+                    'background-color: ' . $band['colour'] . '; width: 1em; height: 1em; vertical-align: middle;']) . $items[$i];
             }
         }
         return \html_writer::alist($items, ['class' => 'list-unstyled mb-0']);

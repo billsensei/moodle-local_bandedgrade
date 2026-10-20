@@ -24,8 +24,8 @@
 /**
  * Colour the cells listed in the page's hidden element.
  *
- * The element holds {itemid: {userid: [cssclass, title]}}; the grader report marks each user row with
- * data-uid and each grade cell with data-itemid.
+ * The element holds {itemid: {userid: [cssclass, title, style]}}; style is null unless the teacher chose the colours.
+ * The grader report marks each user row with data-uid and each grade cell with data-itemid.
  */
 export const init = () => {
     const holder = document.getElementById('local_bandedgrade-colours');
@@ -39,10 +39,13 @@ export const init = () => {
         return;
     }
     Object.entries(colours).forEach(([itemid, users]) => {
-        Object.entries(users).forEach(([userid, [cssclass, title]]) => {
+        Object.entries(users).forEach(([userid, [cssclass, title, style]]) => {
             const cell = document.querySelector(`tr[data-uid="${userid}"] td[data-itemid="${itemid}"]`);
             if (cell) {
                 cell.classList.add(cssclass);
+                if (style) {
+                    cell.style.cssText += style;
+                }
                 cell.title = title;
             }
         });

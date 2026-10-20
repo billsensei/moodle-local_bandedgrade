@@ -87,7 +87,8 @@ const readBands = (form, rows, percent, items) => {
         if (!fromOk || scoreValue === null) {
             continue;
         }
-        bands.push({from: Number(fromText), score: scoreValue});
+        const colour = form.querySelector(`[name="bandedgrade_colour[${i}]"]`);
+        bands.push({from: Number(fromText), score: scoreValue, colour: colour ? colour.value : ''});
     }
     return bands.sort((a, b) => a.from - b.from);
 };
@@ -114,7 +115,11 @@ const readPassFail = (form, percent, items) => {
     if (!markOk || Number(mark) <= 0 || pass === null || fail === null) {
         return [];
     }
-    return [{from: 0, score: fail}, {from: Number(mark), score: pass}];
+    const colourOf = (name) => {
+        const box = form.querySelector(`[name="bandedgrade_pf_${name}colour"]`);
+        return box ? box.value : '';
+    };
+    return [{from: 0, score: fail, colour: colourOf('fail')}, {from: Number(mark), score: pass, colour: colourOf('pass')}];
 };
 
 /**
@@ -142,8 +147,9 @@ const minCorrect = (percent, total) => {
  * @param {Object} strings Preview strings with placeholders.
  * @param {boolean} percent True when the bands are percentages.
  * @param {Array|null} items The words of the chosen scale, or null.
+ * @param {boolean} colours True when the teacher chooses the band colours (a swatch is shown before each band).
  */
-const renderPreview = (target, bands, total, strings, percent, items) => {
+const renderPreview = (target, bands, total, strings, percent, items, colours) => {
     target.textContent = '';
     if (!bands.length) {
         target.textContent = strings.previewempty;
@@ -179,10 +185,33 @@ const renderPreview = (target, bands, total, strings, percent, items) => {
             }
         }
         const item = document.createElement('li');
-        item.textContent = text;
+        if (colours && band.colour) {
+            const swatch = document.createElement('span');
+            swatch.className = 'local-bandedgrade-swatch d-inline-block me-1 border';
+            swatch.style.backgroundColor = band.colour;
+            swatch.style.width = '1em';
+            swatch.style.height = '1em';
+            swatch.style.verticalAlign = 'middle';
+            item.appendChild(swatch);
+        }
+        item.appendChild(document.createTextNode(text));
         list.appendChild(item);
     });
     target.appendChild(list);
+};
+
+/**
+ * The suggested colour of band number index out of count (as colour::suggested() in PHP).
+ *
+ * @param {Array} palette The suggested colours, red to green.
+ * @param {number} index Band number, from 0.
+ * @param {number} count Number of bands.
+ * @returns {string} The colour, "#rrggbb".
+ */
+const suggestedColour = (palette, index, count) => {
+    const last = palette.length - 1;
+    const total = Math.max(count, 2);
+    return palette[Math.min(last, Math.round(Math.min(index, total - 1) * last / (total - 1)))];
 };
 
 /**
@@ -200,6 +229,7 @@ export const init = () => {
     const scheme = form.querySelector('select[name="bandedgrade_scheme"]');
     const pfRuletype = form.querySelector('select[name="bandedgrade_pf_ruletype"]');
     const scale = form.querySelector('select[name="bandedgrade_scale"]');
+    const useColours = form.querySelector('[name="bandedgrade_usecolours"][type="checkbox"]');
     const scaleItems = () => (scale !== null && config.scales[scale.value] ? config.scales[scale.value] : null);
     const isPassFail = () => scheme !== null && scheme.value === config.passfail;
     const isPercent = () => {
@@ -208,12 +238,16 @@ export const init = () => {
     };
     const update = () => {
         const percent = isPercent();
+        // The colour boxes of the band rows show only when the teacher chooses the colours.
+        form.querySelectorAll('input[name^="bandedgrade_colour["]').forEach((box) => {
+            box.hidden = useColours === null || !useColours.checked;
+        });
         form.querySelectorAll('.local-bandedgrade-arrow').forEach((arrow) => {
             arrow.textContent = percent ? config.strings.arrowpercent : config.strings.arrow;
         });
         const items = scaleItems();
         const bands = isPassFail() ? readPassFail(form, percent, items) : readBands(form, config.rows, percent, items);
-        renderPreview(preview, bands, config.total, config.strings, percent, items);
+        renderPreview(preview, bands, config.total, config.strings, percent, items, useColours !== null && useColours.checked);
     };
 
     preset.addEventListener('change', () => {
@@ -226,6 +260,10 @@ export const init = () => {
             for (let i = 0; i < config.rows; i++) {
                 input(form, 'from', i).value = bands[i] ? bands[i].from : '';
                 input(form, 'score', i).value = bands[i] ? bands[i].score : '';
+                const colour = form.querySelector(`[name="bandedgrade_colour[${i}]"]`);
+                if (colour) {
+                    colour.value = suggestedColour(config.suggested, i, bands.length);
+                }
             }
         }
         update();
@@ -235,7 +273,7 @@ export const init = () => {
             update();
         }
     });
-    [ruletype, pfRuletype, scheme, scale].forEach((select) => {
+    [ruletype, pfRuletype, scheme, scale, useColours].forEach((select) => {
         if (select) {
             select.addEventListener('change', update);
         }

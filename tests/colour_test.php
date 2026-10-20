@@ -16,6 +16,7 @@
 
 namespace local_bandedgrade;
 
+use local_bandedgrade\local\bands;
 use local_bandedgrade\local\colour;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(colour::class)]
+#[CoversClass(bands::class)]
 final class colour_test extends \advanced_testcase {
     /**
      * The edges of every colour.
@@ -77,5 +79,119 @@ final class colour_test extends \advanced_testcase {
         foreach (colour::NAMES as $name) {
             $this->assertSame('local_bandedgrade-' . $name, colour::css_class($name));
         }
+    }
+
+    /**
+     * Settings of a quiz with the colours the teacher chose.
+     *
+     * @param string $ruletype Rule type.
+     * @return \stdClass Settings.
+     */
+    private function config(string $ruletype = bands::TYPE_COUNT): \stdClass {
+        return (object)['ruletype' => $ruletype, 'bands' => bands::normalise([
+            ['from' => 0, 'score' => 0, 'colour' => '#FF0000'],
+            ['from' => 2, 'score' => 1],
+            ['from' => 4, 'score' => 2, 'colour' => '#00ff00'],
+        ])];
+    }
+
+    public function test_band_colour_follows_the_band_of_the_count(): void {
+        $config = $this->config();
+        $this->assertSame('#ff0000', colour::band_colour($config, 0.0, 4), 'Stored in lower case.');
+        $this->assertSame('#ff0000', colour::band_colour($config, 1.0, 4));
+        $this->assertNull(colour::band_colour($config, 3.0, 4), 'The band has no colour.');
+        $this->assertSame('#00ff00', colour::band_colour($config, 4.0, 4));
+        $this->assertSame('#ff0000', colour::band_colour($config, 1.5, 4), 'Between two bands: the lower one.');
+        $this->assertNull(colour::band_colour($config, null, 4));
+    }
+
+    public function test_band_colour_with_percentage_bands(): void {
+        $config = (object)['ruletype' => bands::TYPE_PERCENT, 'bands' => [
+            ['from' => 0, 'score' => 0, 'colour' => '#ff0000'],
+            ['from' => 50, 'score' => 1, 'colour' => '#00ff00'],
+        ]];
+        $this->assertSame('#ff0000', colour::band_colour($config, 1.0, 4));
+        $this->assertSame('#00ff00', colour::band_colour($config, 2.0, 4));
+        $this->assertNull(colour::band_colour($config, 2.0, 0), 'No question to take a percentage of.');
+    }
+
+    public function test_cell_uses_the_percentage_colours_until_colours_are_chosen(): void {
+        $plain = (object)['ruletype' => bands::TYPE_COUNT, 'bands' => [
+            ['from' => 0, 'score' => 0],
+            ['from' => 2, 'score' => 1],
+        ]];
+        $this->assertSame(['local_bandedgrade-yellow', null, 60.0], colour::cell($plain, 3.0, 5));
+        $this->assertNull(colour::cell($plain, null, 5));
+        $this->assertNull(colour::cell($plain, 3.0, 0));
+    }
+
+    public function test_cell_with_band_colours(): void {
+        $cell = colour::cell($this->config(), 4.0, 4);
+        $this->assertSame('local_bandedgrade-custom', $cell[0]);
+        $this->assertSame('background-color: #00ff00; color: #212529;', $cell[1]);
+        $this->assertSame(100.0, $cell[2]);
+        $this->assertNull(colour::cell($this->config(), 3.0, 4), 'No colour for that band: leave the cell alone.');
+    }
+
+    public function test_text_colour_is_readable(): void {
+        $this->assertSame('#212529', colour::text_colour('#ffffff'));
+        $this->assertSame('#212529', colour::text_colour('#ffe69c'));
+        $this->assertSame('#212529', colour::text_colour('#ffff00'));
+        $this->assertSame('#ffffff', colour::text_colour('#000000'));
+        $this->assertSame('#ffffff', colour::text_colour('#0b3d91'));
+    }
+
+    public function test_suggested_colours_run_from_red_to_green(): void {
+        $this->assertSame(colour::SUGGESTED[0], colour::suggested(0, 2));
+        $this->assertSame(colour::SUGGESTED[4], colour::suggested(1, 2));
+        $this->assertSame(colour::SUGGESTED[0], colour::suggested(0, 5));
+        $this->assertSame(colour::SUGGESTED[2], colour::suggested(2, 5));
+        $this->assertSame(colour::SUGGESTED[4], colour::suggested(4, 5));
+        $this->assertSame(colour::SUGGESTED[4], colour::suggested(9, 10), 'Every number gives a colour.');
+    }
+
+    public function test_only_plain_hex_colours_are_kept(): void {
+        $this->assertSame('#aabbcc', bands::clean_colour(' #AABBCC '));
+        foreach (['', 'red', '#abc', '#12345g', 'url(x)', '#ff0000; x', null, 5] as $bad) {
+            $this->assertNull(bands::clean_colour($bad));
+        }
+        $bands = bands::normalise([['from' => 0, 'score' => 1, 'colour' => 'javascript:alert(1)']]);
+        $this->assertSame([['from' => 0, 'score' => 1.0]], $bands);
+    }
+
+    public function test_colours_in_rows_and_in_a_stored_copy(): void {
+        [$bands, $errors] = bands::from_rows(
+            ['4', '0', ''],
+            ['2', '0', ''],
+            bands::TYPE_COUNT,
+            null,
+            ['#00ff00', '#ff0000', '#123456']
+        );
+        $this->assertSame([], $errors);
+        $this->assertSame([
+            ['from' => 0, 'score' => 0.0, 'colour' => '#ff0000'],
+            ['from' => 4, 'score' => 2.0, 'colour' => '#00ff00'],
+        ], $bands, 'Each colour stays with its row when the rows are sorted; a blank row is dropped with its colour.');
+        $this->assertSame($bands, bands::decode(bands::encode($bands)));
+        $this->assertTrue(bands::has_colours($bands));
+        $this->assertFalse(bands::has_colours(bands::without_colours($bands)));
+        $this->assertTrue(bands::are_valid($bands), 'A colour does not change whether the bands are valid.');
+    }
+
+    public function test_with_colours_matches_colours_to_bands_in_order(): void {
+        $bands = bands::with_colours(
+            [['from' => 0, 'score' => 0.0], ['from' => 5, 'score' => 1.0], ['from' => 9, 'score' => 2.0]],
+            ['#111111', 'nope']
+        );
+        $this->assertSame('#111111', $bands[0]['colour']);
+        $this->assertArrayNotHasKey('colour', $bands[1]);
+        $this->assertArrayNotHasKey('colour', $bands[2]);
+    }
+
+    public function test_colours_do_not_stop_a_preset_from_matching(): void {
+        $this->resetAfterTest();
+        $preset = bands::builtin_presets()['zerotothree10'];
+        $coloured = bands::with_colours($preset, ['#ff0000', '#ffff00', '#00ff00', '#0000ff']);
+        $this->assertSame('zerotothree10', bands::matching_preset($coloured));
     }
 }

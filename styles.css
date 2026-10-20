@@ -3,7 +3,8 @@
 .local_bandedgrade-yellow,
 .local_bandedgrade-lightblue,
 .local_bandedgrade-blue,
-.local_bandedgrade-green {
+.local_bandedgrade-green,
+.local_bandedgrade-custom {
     color: #212529;
 }
 
@@ -31,7 +32,8 @@ span.local_bandedgrade-red,
 span.local_bandedgrade-yellow,
 span.local_bandedgrade-lightblue,
 span.local_bandedgrade-blue,
-span.local_bandedgrade-green {
+span.local_bandedgrade-green,
+span.local_bandedgrade-custom {
     display: inline-block;
     padding: 0 0.5rem;
     border-radius: 0.25rem;

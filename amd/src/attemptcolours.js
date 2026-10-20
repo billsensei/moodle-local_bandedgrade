@@ -59,7 +59,7 @@ const gradeCellOf = (row) => {
 /**
  * Colour the cells listed in the page's hidden element.
  *
- * The element holds {attemptid: [cssclass, title]}.
+ * The element holds {attemptid: [cssclass, title, style]} (style is null unless the teacher chose the colour).
  */
 export const init = () => {
     const holder = document.getElementById('local_bandedgrade-attempt-colours');
@@ -75,8 +75,11 @@ export const init = () => {
     document.querySelectorAll('table#attempts tbody tr, table#responses tbody tr').forEach((row) => {
         const [cell, attempt] = gradeCellOf(row);
         if (cell && Object.prototype.hasOwnProperty.call(colours, attempt)) {
-            const [cssclass, title] = colours[attempt];
+            const [cssclass, title, style] = colours[attempt];
             cell.classList.add(cssclass);
+            if (style) {
+                cell.style.cssText += style;
+            }
             cell.title = title;
         }
     });

@@ -372,13 +372,15 @@ class bands {
      * @param string $ruletype TYPE_COUNT (whole numbers of questions) or TYPE_PERCENT (0 to 100, up to 2 decimals).
      * @param string[]|null $scaleitems The words of the scale the scores are in (each score is a word or its position),
      *        or null for numeric scores.
+     * @param array $colours Row index => report colour ("#rrggbb"). A row without a valid colour has none.
      * @return array [bands, errors]: bands sorted by from; errors keyed by row index ('all' for the whole table).
      */
     public static function from_rows(
         array $froms,
         array $scores,
         string $ruletype = self::TYPE_COUNT,
-        ?array $scaleitems = null
+        ?array $scaleitems = null,
+        array $colours = []
     ): array {
         $percent = $ruletype === self::TYPE_PERCENT;
         $bands = [];
@@ -428,7 +430,7 @@ class bands {
                 continue;
             }
             $seen[(string)$from] = true;
-            $bands[] = ['from' => $from, 'score' => (float)$score];
+            $bands[] = ['from' => $from, 'score' => (float)$score, 'colour' => $colours[$i] ?? null];
         }
         if ($errors) {
             return [[], $errors];
@@ -467,16 +469,82 @@ class bands {
     }
 
     /**
+     * A report colour in its stored form.
+     *
+     * @param mixed $colour What was typed or stored.
+     * @return string|null "#rrggbb" in lower case, or null when it is not a colour of that form.
+     */
+    public static function clean_colour($colour): ?string {
+        if (!is_string($colour) || !preg_match('/^#[0-9a-f]{6}$/i', trim($colour))) {
+            return null;
+        }
+        return \core_text::strtolower(trim($colour));
+    }
+
+    /**
+     * Give bands the colours chosen in the form, one per band in the order given.
+     *
+     * Used for bands that do not come with colours (presets, the pass/fail scheme, and rows sorted after colours were read).
+     *
+     * @param array $bands Bands, sorted by lower bound.
+     * @param array $colours Colours in the order of the bands; an invalid or missing colour leaves the band uncoloured.
+     * @return array Bands, with a colour where one was given.
+     */
+    public static function with_colours(array $bands, array $colours): array {
+        $colours = array_values($colours);
+        foreach (array_values($bands) as $i => $band) {
+            unset($bands[$i]['colour']);
+            $colour = self::clean_colour($colours[$i] ?? null);
+            if ($colour !== null) {
+                $bands[$i]['colour'] = $colour;
+            }
+        }
+        return array_values($bands);
+    }
+
+    /**
+     * Remove the colours from bands.
+     *
+     * @param array $bands Bands.
+     * @return array The same bands, without colours.
+     */
+    public static function without_colours(array $bands): array {
+        return array_map(function ($band) {
+            unset($band['colour']);
+            return $band;
+        }, $bands);
+    }
+
+    /**
+     * Whether any band has a report colour.
+     *
+     * @param array $bands Bands.
+     * @return bool True when the teacher chose colours.
+     */
+    public static function has_colours(array $bands): bool {
+        return (bool)array_filter(self::normalise($bands), fn($band) => isset($band['colour']));
+    }
+
+    /**
      * Sort bands by lower bound and fix their types (a whole "from" is an int, such as 5 or 50; 66.67 stays a float).
+     *
+     * A band keeps its report colour only when it is a valid one (see clean_colour()).
      *
      * @param array $bands Bands.
      * @return array Sorted bands.
      */
     public static function normalise(array $bands): array {
-        $bands = array_map(fn($band) => [
-            'from' => (float)$band['from'] == (int)$band['from'] ? (int)$band['from'] : (float)$band['from'],
-            'score' => (float)$band['score'],
-        ], $bands);
+        $bands = array_map(function ($band) {
+            $result = [
+                'from' => (float)$band['from'] == (int)$band['from'] ? (int)$band['from'] : (float)$band['from'],
+                'score' => (float)$band['score'],
+            ];
+            $colour = self::clean_colour($band['colour'] ?? null);
+            if ($colour !== null) {
+                $result['colour'] = $colour;
+            }
+            return $result;
+        }, $bands);
         usort($bands, fn($a, $b) => $a['from'] <=> $b['from']);
         return array_values($bands);
     }
@@ -557,8 +625,9 @@ class bands {
      * @return string Preset key or ''.
      */
     public static function matching_preset(array $bands, string $ruletype = self::TYPE_COUNT): string {
+        $plain = self::normalise(self::without_colours($bands)); // A preset has no colours, so ignore the quiz's.
         foreach (self::presets() as $key => $preset) {
-            if (self::preset_ruletype($key) === $ruletype && self::normalise($preset) == self::normalise($bands)) {
+            if (self::preset_ruletype($key) === $ruletype && self::normalise($preset) == $plain) {
                 return $key;
             }
         }

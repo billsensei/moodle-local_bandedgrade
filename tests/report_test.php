@@ -16,6 +16,7 @@
 
 namespace local_bandedgrade;
 
+use local_bandedgrade\local\quiz_config;
 use local_bandedgrade\local\report;
 use PHPUnit\Framework\Attributes\CoversClass;
 
@@ -154,10 +155,32 @@ final class report_test extends \advanced_testcase {
         $other = $this->attempt($quiz, $bob, $this->frogs(3, 4));
 
         $this->assertEquals([
-            (int)$first->id => ['red', 25.0],
-            (int)$second->id => ['green', 100.0],
-            (int)$other->id => ['lightblue', 75.0],
+            (int)$first->id => ['local_bandedgrade-red', null, 25.0],
+            (int)$second->id => ['local_bandedgrade-green', null, 100.0],
+            (int)$other->id => ['local_bandedgrade-lightblue', null, 75.0],
         ], $this->attempt_colours($quiz), 'Every counted attempt has its own colour, not only the one that sets the score.');
+    }
+
+    public function test_attempt_colours_use_the_band_colours(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        quiz_config::save((int)$quiz->id, (int)$this->course->id, true, [
+            ['from' => 0, 'score' => 0, 'colour' => '#ff0000'],
+            ['from' => 2, 'score' => 1],
+            ['from' => 4, 'score' => 2, 'colour' => '#00ff00'],
+        ], true);
+        $ann = $this->getDataGenerator()->create_and_enrol($this->course);
+        $bob = $this->getDataGenerator()->create_and_enrol($this->course);
+        $low = $this->attempt($quiz, $ann, $this->frogs(1, 4));
+        $middle = $this->attempt($quiz, $bob, $this->frogs(3, 4));
+        $full = $this->attempt($quiz, $ann, $this->frogs(4, 4));
+
+        $colours = $this->attempt_colours($quiz);
+        $this->assertSame('local_bandedgrade-custom', $colours[(int)$low->id][0]);
+        $this->assertStringContainsString('background-color: #ff0000;', $colours[(int)$low->id][1]);
+        $this->assertSame(25.0, $colours[(int)$low->id][2]);
+        $this->assertStringContainsString('background-color: #00ff00;', $colours[(int)$full->id][1]);
+        $this->assertArrayNotHasKey((int)$middle->id, $colours, 'A band without a colour is not coloured.');
     }
 
     public function test_attempt_waiting_for_marking_has_no_colour(): void {

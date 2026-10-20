@@ -17,6 +17,7 @@
 namespace local_bandedgrade;
 
 use local_bandedgrade\local\bands;
+use local_bandedgrade\local\quiz_config;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -197,6 +198,26 @@ final class hook_callbacks_test extends \advanced_testcase {
         return json_decode(html_entity_decode($matches[1]), true);
     }
 
+    public function test_results_reports_use_the_colours_chosen_for_the_bands(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        quiz_config::save((int)$quiz->id, (int)$this->course->id, true, [
+            ['from' => 0, 'score' => 0, 'colour' => '#ff0000'],
+            ['from' => 2, 'score' => 1, 'colour' => '#ffff00'],
+            ['from' => 4, 'score' => 2, 'colour' => '#0b3d91'],
+        ], true);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $low = $this->attempt($quiz, $student, $this->frogs(1, 4));
+        $high = $this->attempt($quiz, $student, $this->frogs(4, 4));
+
+        $colours = $this->results_colours($quiz);
+        $this->assertSame(
+            ['local_bandedgrade-custom', '25% of the questions correct', 'background-color: #ff0000; color: #212529;'],
+            $colours[$low->id]
+        );
+        $this->assertSame('background-color: #0b3d91; color: #ffffff;', $colours[$high->id][2], 'White text on a dark colour.');
+    }
+
     public function test_results_reports_colour_each_attempt(): void {
         $quiz = $this->make_frog_quiz(4);
         $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
@@ -205,8 +226,8 @@ final class hook_callbacks_test extends \advanced_testcase {
         $high = $this->attempt($quiz, $student, $this->frogs(4, 4));
 
         $colours = $this->results_colours($quiz);
-        $this->assertSame(['local_bandedgrade-red', '25% of the questions correct'], $colours[$low->id]);
-        $this->assertSame(['local_bandedgrade-green', '100% of the questions correct'], $colours[$high->id]);
+        $this->assertSame(['local_bandedgrade-red', '25% of the questions correct', null], $colours[$low->id]);
+        $this->assertSame(['local_bandedgrade-green', '100% of the questions correct', null], $colours[$high->id]);
         $this->assertCount(2, $colours);
         $this->assertCount(2, $this->results_colours($quiz, 'responses'), 'The Responses report is coloured too.');
         $this->assertCount(2, $this->results_colours($quiz, null), 'No mode in the address means the Grades report.');
