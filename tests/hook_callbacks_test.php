@@ -106,16 +106,55 @@ final class hook_callbacks_test extends \advanced_testcase {
      * @return array Item id => user id => [css class, title].
      */
     private function grader_colours(): array {
+        if (!preg_match('/data-colours="([^"]*)"/', $this->grader_output(), $matches)) {
+            return [];
+        }
+        return json_decode(html_entity_decode($matches[1]), true);
+    }
+
+    /**
+     * Run the grader report footer hook and return the HTML it adds.
+     *
+     * @return string HTML.
+     */
+    private function grader_output(): string {
         global $PAGE;
         $PAGE = new \moodle_page();
         $PAGE->set_course($this->course);
         $PAGE->set_pagetype('grade-report-grader-index');
         $hook = new \core\hook\output\before_standard_footer_html_generation($PAGE->get_renderer('core'));
         hook_callbacks::before_standard_footer_html_generation($hook);
-        if (!preg_match('/data-colours="([^"]*)"/', $hook->get_output(), $matches)) {
-            return [];
-        }
-        return json_decode(html_entity_decode($matches[1]), true);
+        return $hook->get_output();
+    }
+
+    public function test_grader_report_has_a_colour_key_for_each_coloured_quiz(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course);
+        $this->attempt($quiz, $student, $this->frogs(3, 4));
+        $this->setAdminUser();
+
+        $output = $this->grader_output();
+        $this->assertStringContainsString('id="local_bandedgrade-key"', $output);
+        $this->assertStringContainsString($quiz->name, $output);
+        $this->assertStringContainsString('Red: 0% to 59.9%', $output, 'The percentage colours are explained.');
+
+        quiz_config::save((int)$quiz->id, (int)$this->course->id, true, [
+            ['from' => 0, 'score' => 0, 'colour' => '#ff0000'],
+            ['from' => 2, 'score' => 1, 'colour' => '#00ff00'],
+            ['from' => 4, 'score' => 2, 'colour' => '#0b3d91'],
+        ], true);
+        $output = $this->grader_output();
+        $this->assertStringContainsString('From 2 correct', $output, 'The band colours are explained.');
+        $this->assertStringContainsString('background-color: #0b3d91; color: #ffffff;', $output);
+        $this->assertStringNotContainsString('Red: 0% to 59.9%', $output);
+    }
+
+    public function test_grader_report_has_no_colour_key_without_coloured_students(): void {
+        $quiz = $this->make_frog_quiz(4);
+        $this->enable($quiz, [0 => 0, 2 => 1, 4 => 2]);
+        $this->setAdminUser();
+        $this->assertStringNotContainsString('local_bandedgrade-key', $this->grader_output());
     }
 
     public function test_grader_report_colours_need_the_quiz_report_capability(): void {

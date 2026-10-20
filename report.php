@@ -23,7 +23,6 @@
  */
 
 use local_bandedgrade\event\report_viewed;
-use local_bandedgrade\local\bands;
 use local_bandedgrade\local\colour;
 use local_bandedgrade\local\counter;
 use local_bandedgrade\local\gradebook;
@@ -130,30 +129,6 @@ foreach ($rows as $row) {
     $table->data[] = $cells;
 }
 echo html_writer::table($table);
-if (bands::has_colours($config->bands)) {
-    $key = [];
-    foreach ($config->bands as $band) {
-        if (isset($band['colour'])) {
-            $key[] = html_writer::span(
-                get_string(
-                    $config->ruletype === bands::TYPE_PERCENT ? 'colourkeypercent' : 'colourkeycount',
-                    'local_bandedgrade',
-                    format_float($band['from'], 2, true, true)
-                ),
-                'local_bandedgrade-custom',
-                ['style' => colour::style($band['colour'])]
-            );
-        }
-    }
-    echo html_writer::tag(
-        'p',
-        get_string('reportcolourkeybands', 'local_bandedgrade') . ' ' . implode(' ', $key),
-        ['class' => 'small']
-    );
-} else {
-    echo html_writer::tag('p', get_string('reportcolourkey', 'local_bandedgrade') . ' ' . implode(' ', array_map(
-        fn($name) => html_writer::span(get_string('colour_' . $name, 'local_bandedgrade'), colour::css_class($name)),
-        colour::NAMES
-    )), ['class' => 'small']);
-}
+[$keyintro, $keyswatches] = colour::key($config);
+echo html_writer::tag('p', $keyintro . ' ' . $keyswatches, ['class' => 'small']);
 echo $OUTPUT->footer();

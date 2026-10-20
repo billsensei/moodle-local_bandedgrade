@@ -74,6 +74,8 @@ Feature: Colour codes for the percentage of questions answered correctly
     When I am on the "Course 1" "grades > Grader report > View" page
     Then ".local_bandedgrade-lightblue" "css_element" should exist in the "Student One" "table_row"
     And ".local_bandedgrade-green" "css_element" should exist in the "Student Two" "table_row"
+    And I should see "Red: 0% to 59.9%" in the "#local_bandedgrade-key" "css_element"
+    And I should see "Quiz 1" in the "#local_bandedgrade-key" "css_element"
 
   Scenario: The Grades report of the quiz colours the grade of each attempt
     When I am on the "Quiz 1" "mod_quiz > Grades report" page

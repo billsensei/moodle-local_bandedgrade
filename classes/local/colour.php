@@ -162,4 +162,34 @@ class colour {
         }
         return [self::css_class(self::name($percent)), null, $percent];
     }
+
+    /**
+     * The colour key of a quiz: one swatch with a label for each band colour, or for each percentage colour.
+     *
+     * @param \stdClass $config The quiz settings (ruletype, bands).
+     * @return array [intro string, HTML of the swatches separated by spaces].
+     */
+    public static function key(\stdClass $config): array {
+        $swatches = [];
+        if (bands::has_colours($config->bands)) {
+            foreach (bands::normalise($config->bands) as $band) {
+                if (isset($band['colour'])) {
+                    $swatches[] = \html_writer::span(
+                        get_string(
+                            $config->ruletype === bands::TYPE_PERCENT ? 'colourkeypercent' : 'colourkeycount',
+                            'local_bandedgrade',
+                            format_float($band['from'], 2, true, true)
+                        ),
+                        'local_bandedgrade-custom',
+                        ['style' => self::style($band['colour'])]
+                    );
+                }
+            }
+            return [get_string('reportcolourkeybands', 'local_bandedgrade'), implode(' ', $swatches)];
+        }
+        foreach (self::NAMES as $name) {
+            $swatches[] = \html_writer::span(get_string('colour_' . $name, 'local_bandedgrade'), self::css_class($name));
+        }
+        return [get_string('reportcolourkey', 'local_bandedgrade'), implode(' ', $swatches)];
+    }
 }

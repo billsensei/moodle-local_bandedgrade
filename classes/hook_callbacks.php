@@ -118,6 +118,7 @@ class hook_callbacks {
             }
         }
         $colours = [];
+        $keys = [];
         foreach ($configs as $row) {
             $config = quiz_config::get_enabled((int)$row->quizid);
             $item = $config ? local\gradebook::get_item($config) : null;
@@ -139,6 +140,7 @@ class hook_callbacks {
                 }
                 $cell = colour::cell($config, $userrow->used, $total);
                 if ($cell !== null) {
+                    $keys[$item->id] ??= [$cm->get_formatted_name(), colour::key($config)];
                     $colours[$item->id][$userrow->userid] = [
                         $cell[0],
                         get_string('gradecolourtitle', 'local_bandedgrade', format_float($cell[2], 1, true, true)),
@@ -155,6 +157,16 @@ class hook_callbacks {
             'hidden' => 'hidden',
             'data-colours' => json_encode($colours),
         ]));
+        // The key of each coloured quiz, below the grader table (the footer comes after it).
+        $lines = '';
+        foreach ($keys as [$name, [$intro, $swatches]]) {
+            $lines .= \html_writer::tag(
+                'p',
+                \html_writer::tag('strong', $name) . ': ' . $intro . ' ' . $swatches,
+                ['class' => 'mb-1']
+            );
+        }
+        $hook->add_html(\html_writer::div($lines, 'small mt-2', ['id' => 'local_bandedgrade-key']));
         $PAGE->requires->js_call_amd('local_bandedgrade/gradecolours', 'init');
     }
 

@@ -77,6 +77,8 @@ Feature: Colours chosen for each band
     And I am on the "Course 1" "grades > Grader report > View" page
     And "td.local_bandedgrade-custom[style*='rgb(255, 255, 0)']" "css_element" should exist in the "Student One" "table_row"
     And "td.local_bandedgrade-custom[style*='rgb(11, 61, 145)']" "css_element" should exist in the "Student Two" "table_row"
+    And I should see "From 4 correct" in the "#local_bandedgrade-key" "css_element"
+    And I should not see "Red: 0% to 59.9%"
     And I am on the "Quiz 1" "mod_quiz > Grades report" page
     And ".local_bandedgrade-custom[style*='rgb(11, 61, 145)']" "css_element" should exist in the "Student Two" "table_row"
 
