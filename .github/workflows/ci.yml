@@ -139,3 +139,14 @@ jobs:
       - name: Mark cancelled jobs as failed.
         if: ${{ cancelled() }}
         run: exit 1
+
+  package:
+    # The release zip must open in Moodle's "Install plugin from ZIP file": one root folder and
+    # explicit directory entries (core\update\validator: rootinvalid, missinglangenfolder).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and check the zip
+        run: |
+          git archive --format=zip --prefix=bandedgrade/ -o "$RUNNER_TEMP/local_bandedgrade.zip" HEAD
+          scripts/check-zip.sh "$RUNNER_TEMP/local_bandedgrade.zip" bandedgrade local_bandedgrade

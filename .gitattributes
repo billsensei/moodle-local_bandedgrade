@@ -1,0 +1,2 @@
+# Repository-only files stay out of release zips (git archive).
+/scripts export-ignore
