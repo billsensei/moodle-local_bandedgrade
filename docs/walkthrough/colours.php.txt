@@ -1,0 +1,17 @@
+<?php
+// Give the Amphibians quiz the band colours used in the walk-through figures.
+define('CLI_SCRIPT', true);
+define('BEHAT_UTIL', true);
+define('BEHAT_TEST', true);
+require('/home/bill/test/moodle/config.php');
+$quiz = $DB->get_record('quiz', ['name' => 'Amphibians quiz'], '*', MUST_EXIST);
+$rec = $DB->get_record('local_bandedgrade_quiz', ['quizid' => $quiz->id], '*', MUST_EXIST);
+$bands = json_decode($rec->bands, true);
+print_r($bands);
+$colours = ['#f4a6a6', '#ffe08a', '#9fd3f0', '#a8e0b0'];
+foreach ($bands as $i => &$band) {
+    $band['colour'] = $colours[$i];
+}
+$DB->set_field('local_bandedgrade_quiz', 'bands', json_encode($bands), ['id' => $rec->id]);
+purge_all_caches();
+echo json_encode($bands), "\n";

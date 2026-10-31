@@ -1,0 +1,12 @@
+<?php
+// Rename the Behat site front page to "Riverside" (as in the screenshots) and purge caches.
+define('CLI_SCRIPT', true);
+define('BEHAT_UTIL', true);
+define('BEHAT_TEST', true);
+require('/home/bill/test/moodle/config.php');
+$DB->set_field('course', 'fullname', 'Riverside', ['id' => SITEID]);
+$DB->set_field('course', 'shortname', 'Riverside', ['id' => SITEID]);
+purge_all_caches();
+$quiz = $DB->get_record('quiz', ['name' => 'Amphibians quiz']);
+$cm = get_coursemodule_from_instance('quiz', $quiz->id);
+echo "cmid {$cm->id} courseid {$cm->course}\n";
