@@ -5,7 +5,7 @@ See also the [releases on GitHub](https://github.com/billsensei/moodle-local_ban
 
 ## Unreleased
 
-- Release. A new GitHub workflow, `moodle-release.yml`, sends each pushed `v*` tag to the Moodle plugins directory. It needs the repository secret `MOODLE_MARKETPLACE_TOKEN`.
+- Release. A new GitHub workflow, `moodle-release.yml`, sends each pushed `v*` tag to the Moodle plugins directory. It needs the repository secret `MARKETPLACE_TOKEN`.
 
 ## 0.10.2, 2026-10-31
 

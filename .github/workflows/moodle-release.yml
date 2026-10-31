@@ -16,4 +16,4 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
     secrets:
-      MOODLE_MARKETPLACE_TOKEN: ${{ secrets.MOODLE_MARKETPLACE_TOKEN }}
+      MOODLE_MARKETPLACE_TOKEN: ${{ secrets.MARKETPLACE_TOKEN }}
