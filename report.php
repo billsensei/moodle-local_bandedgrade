@@ -102,7 +102,7 @@ foreach ($rows as $row) {
         ($attempt->missed ? ' (' . $missedrequired . ')' : ''), $row->attempts);
     $score = $row->score === null ? '-' : gradebook::format_score($item, $row->score);
     if ($row->byhand) {
-        $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge bg-info text-dark');
+        $score .= ' ' . html_writer::span(get_string('reportbyhand', 'local_bandedgrade'), 'badge local_bandedgrade-byhand');
     }
     $cell = colour::cell($config, $row->used, $total);
     $percentcell = '-';

@@ -64,6 +64,8 @@ Feature: Colours chosen for each band
     Given I am on the "Quiz 1" "quiz activity editing" page
     And I expand all fieldsets
     And I set the field "Choose the report colours myself" to "1"
+    And "Band 1: colour" "field" should be visible
+    And "Band 5: colour" "field" should not be visible
     And I set the field "Band 1: colour" to "#ff0000"
     And I set the field "Band 2: colour" to "#ffff00"
     And I set the field "Band 3: colour" to "#0b3d91"
@@ -108,6 +110,7 @@ Feature: Colours chosen for each band
       | Pass mark           | 3            |
       | Colour for a fail   | #ff0000      |
       | Colour for a pass   | #00ff00      |
+    And "Colour for a fail" "field" should be visible
     And I press "Save and display"
     When I am on the "Quiz 1" "quiz activity" page
     And I navigate to "Number correct" in current page administration

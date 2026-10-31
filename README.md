@@ -235,7 +235,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.10.1 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.10.2 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility

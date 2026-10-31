@@ -239,8 +239,13 @@ export const init = () => {
     const update = () => {
         const percent = isPercent();
         // The colour boxes of the band rows show only when the teacher chooses the colours.
+        // A row that is still empty has no colour box either.
         form.querySelectorAll('input[name^="bandedgrade_colour["]').forEach((box) => {
-            box.hidden = useColours === null || !useColours.checked;
+            const index = box.name.slice('bandedgrade_colour['.length, -1);
+            const from = input(form, 'from', index);
+            const score = input(form, 'score', index);
+            const empty = from !== null && score !== null && from.value.trim() === '' && score.value.trim() === '';
+            box.hidden = useColours === null || !useColours.checked || empty;
         });
         form.querySelectorAll('.local-bandedgrade-arrow').forEach((arrow) => {
             arrow.textContent = percent ? config.strings.arrowpercent : config.strings.arrow;

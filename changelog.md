@@ -3,6 +3,11 @@
 All notable changes to `local_bandedgrade`, newest first. Add an entry here with every new version. `CHANGES.md` holds only the latest version.
 See also the [releases on GitHub](https://github.com/billsensei/moodle-local_bandedgrade/releases).
 
+## 0.10.2, 2026-10-31
+
+- Fix. The "Changed by hand" badge on the Number correct page is now white on dark teal. It was dark text on a dark background and hard to read.
+- Fix. In the quiz settings, on the Pass or fail view, the two colour pickers now have the normal form layout (label on the left) and sit below the "Choose the report colours myself" checkbox. The colour box of an empty band row is hidden.
+
 ## 0.10.1, 2026-10-20
 
 - New. The grader report now shows a colour key below the table for each quiz that has coloured grades: the band colours when the teacher chose them, otherwise the percentage colours. It is shown only to people who may see the quiz reports, like the cell colours. The key text is the same as on the Number correct page.

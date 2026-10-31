@@ -86,3 +86,9 @@ span.local_bandedgrade-custom {
 .path-mod-quiz table.generaltable td.local_bandedgrade-green {
     background-color: #b6e3c6;
 }
+
+/* "Changed by hand" badge: white on dark teal (7.5:1), whatever the theme's info colour is. */
+.local_bandedgrade-byhand {
+    background-color: #005f6b;
+    color: #fff;
+}

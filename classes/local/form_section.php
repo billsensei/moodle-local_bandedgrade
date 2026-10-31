@@ -122,6 +122,11 @@ class form_section {
             $mform->hideIf('bandedgrade_scale', 'bandedgrade_enabled');
         }
 
+        $mform->addElement('advcheckbox', 'bandedgrade_usecolours', get_string('usecolours', 'local_bandedgrade'));
+        $mform->addHelpButton('bandedgrade_usecolours', 'usecolours', 'local_bandedgrade');
+        $mform->setDefault('bandedgrade_usecolours', bands::has_colours($current) ? 1 : 0);
+        $mform->hideIf('bandedgrade_usecolours', 'bandedgrade_enabled');
+
         $options = ['' => get_string('preset_custom', 'local_bandedgrade')] + bands::preset_names();
         $mform->addElement('select', 'bandedgrade_preset', get_string('preset', 'local_bandedgrade'), $options);
         $mform->addHelpButton('bandedgrade_preset', 'preset', 'local_bandedgrade');
@@ -172,8 +177,13 @@ class form_section {
         $mform->setDefault('bandedgrade_pf_pass', self::score_text($passfail ? $passfail[1] : 1, $scaleitems));
         $mform->setDefault('bandedgrade_pf_fail', self::score_text($passfail ? $passfail[2] : 0, $scaleitems));
         foreach (['fail', 'pass'] as $i => $name) {
-            $mform->addElement(
-                self::colour_element($mform, "bandedgrade_pf_{$name}colour", get_string("{$name}colour", 'local_bandedgrade'))
+            $label = get_string("{$name}colour", 'local_bandedgrade');
+            $mform->addGroup(
+                [self::colour_element($mform, "bandedgrade_pf_{$name}colour", $label)],
+                "bandedgrade_pf_{$name}colourrow",
+                $label,
+                ' ',
+                false
             );
             $mform->setType("bandedgrade_pf_{$name}colour", PARAM_RAW_TRIMMED);
             $mform->setDefault("bandedgrade_pf_{$name}colour", $passfail
@@ -202,11 +212,6 @@ class form_section {
             $mform->setDefault('bandedgrade_required', $chosen);
             $mform->hideIf('bandedgrade_required', 'bandedgrade_enabled');
         }
-
-        $mform->addElement('advcheckbox', 'bandedgrade_usecolours', get_string('usecolours', 'local_bandedgrade'));
-        $mform->addHelpButton('bandedgrade_usecolours', 'usecolours', 'local_bandedgrade');
-        $mform->setDefault('bandedgrade_usecolours', bands::has_colours($current) ? 1 : 0);
-        $mform->hideIf('bandedgrade_usecolours', 'bandedgrade_enabled');
 
         $count = count($current);
         for ($i = 0; $i < bands::MAX_ROWS; $i++) {
@@ -405,7 +410,7 @@ class form_section {
     }
 
     /**
-     * A colour picker box (the browser's own colour chooser).
+     * A colour picker box (the browser's own colour chooser), to be added to a group.
      *
      * @param \MoodleQuickForm $mform The form.
      * @param string $name Element name.
@@ -414,7 +419,9 @@ class form_section {
      */
     private static function colour_element(\MoodleQuickForm $mform, string $name, string $label) {
         $element = $mform->createElement('text', $name, $label, ['class' => 'local-bandedgrade-colour']);
-        $element->setType('color'); // The element's own type attribute (not the form's PARAM type).
+        // The element's own type (not the form's PARAM type). A box like this loses the standard form layout unless it is
+        // put in a group, so callers always add it to one.
+        $element->setType('color');
         return $element;
     }
 
