@@ -3,6 +3,10 @@
 All notable changes to `local_bandedgrade`, newest first. Add an entry here with every new version. `CHANGES.md` holds only the latest version.
 See also the [releases on GitHub](https://github.com/billsensei/moodle-local_bandedgrade/releases).
 
+## Unreleased
+
+- Release. A new GitHub workflow, `moodle-release.yml`, sends each pushed `v*` tag to the Moodle plugins directory. It needs the repository secret `MOODLE_MARKETPLACE_TOKEN`.
+
 ## 0.10.2, 2026-10-31
 
 - Fix. The "Changed by hand" badge on the Number correct page is now white on dark teal. It was dark text on a dark background and hard to read.
