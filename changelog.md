@@ -3,8 +3,10 @@
 All notable changes to `local_bandedgrade`, newest first. Add an entry here with every new version. `CHANGES.md` holds only the latest version.
 See also the [releases on GitHub](https://github.com/billsensei/moodle-local_bandedgrade/releases).
 
-## Unreleased
+## 0.10.3, 2026-11-03
 
+- Fix. A student's score is no longer delayed when many students submit a quiz at once (the wait for the quiz lock was 5 seconds; now the background task takes over at once). Found by the MDL Shield review.
+- Fix. The score column on the Number correct page is shown only to people who also have `moodle/grade:viewall`. Default roles are unaffected. Found by the MDL Shield review.
 - Release. A new GitHub workflow, `moodle-release.yml`, sends each pushed `v*` tag to the Moodle plugins directory. It needs the repository secret `MARKETPLACE_TOKEN`.
 
 ## 0.10.2, 2026-10-31

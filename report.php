@@ -89,8 +89,11 @@ $table->head = [
     get_string('reportpercent', 'local_bandedgrade'),
 ];
 $item = gradebook::get_item($config);
+// The score column shows gradebook values (hand changes included), so it needs gradebook view rights too.
 // A hidden score column is shown only to people who may see hidden grades.
-$showscores = report::scores_visible($item, context_course::instance($course->id));
+$coursecontext = context_course::instance($course->id);
+$showscores = has_capability('moodle/grade:viewall', $coursecontext)
+    && report::scores_visible($item, $coursecontext);
 if ($showscores) {
     $table->head[] = get_string('reportscore', 'local_bandedgrade');
 }

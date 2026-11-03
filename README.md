@@ -219,7 +219,7 @@ Each quiz keeps a copy of its bands. Changing or removing a set here does not ch
 
 `local/bandedgrade:recalculate` lets someone use the Recalculate page. By default, editing teachers and managers have it.
 It is marked as a data-loss risk because "replace" overwrites scores changed by hand.
-The **Number correct** page uses the quiz's own `mod/quiz:viewreports` capability (teachers, non-editing teachers and managers).
+The **Number correct** page uses the quiz's own `mod/quiz:viewreports` capability (teachers, non-editing teachers and managers). Its score column also needs `moodle/grade:viewall`, because it shows gradebook values.
 Turning the feature on and setting the bands needs both the right to edit the quiz settings and
 `moodle/grade:manage` (set up the gradebook) in the course.
 
@@ -235,7 +235,7 @@ Both are covered by Moodle's privacy export and delete tools. The scores themsel
 
 ### Status
 
-Version 0.10.2 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
+Version 0.10.3 is **stable**: it has been tried on a Moodle site and passes the automated tests on every supported
 Moodle version and database.
 
 ### Compatibility

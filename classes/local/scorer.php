@@ -50,8 +50,13 @@ class scorer {
     /** @var int Students handled per step when a whole quiz is rescored (changed only by tests). */
     public static int $chunksize = 200;
 
-    /** @var int Seconds a student's rescore waits for another rescore of the same quiz before handing over. */
-    const LOCK_WAIT_USER = 5;
+    /**
+     * @var int Seconds a student's rescore waits for another rescore of the same quiz before handing over.
+     *
+     * Zero: the request never waits. The ad-hoc task catches the student up, so a timed exam that closes
+     * does not make every submission queue behind the quiz lock.
+     */
+    const LOCK_WAIT_USER = 0;
 
     /** @var int Seconds a whole-quiz rescore waits for another rescore of the same quiz. */
     const LOCK_WAIT_QUIZ = 120;
