@@ -2,6 +2,12 @@
 
 What changed or was added since the previous version of `local_bandedgrade`. The full history is in [changelog.md](changelog.md).
 
+## Unreleased
+
+Marketplace summary: Release workflow now sends a one-line summary, because the Marketplace keeps only 128 characters of the notes.
+
+- Release. The Moodle Marketplace keeps only the first 128 characters of the release notes, so v0.10.3 showed a cut-off sentence. `moodle-release.yml` now sends the one line of `CHANGES.md` that starts with `Marketplace summary: ` (at most 128 characters) and stops with an error if it is missing or too long. Add that line with every version.
+
 ## 0.10.3, 2026-11-03
 
 - Fix. A student's score is no longer delayed when many students submit a quiz at once (the wait for the quiz lock was 5 seconds; now the background task takes over at once). Found by the MDL Shield review.
